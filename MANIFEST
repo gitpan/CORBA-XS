@@ -6,12 +6,8 @@ xs_c.pm
 c_cdr.pm
 c_skel.pm
 c_stub.pm
-pl_name.pm
-pl_literal.pm
-pl_cdr.pm
 pl_stub.pm
 idl2xs_c.pl
-Perl/CORBA.pm
 C/corba.c
 C/corba.h
 C/cdr.h

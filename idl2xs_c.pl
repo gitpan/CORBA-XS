@@ -12,8 +12,8 @@ use CORBA::C::type;
 use CORBA::XS::c_skel;
 use CORBA::XS::c_stub;
 use CORBA::XS::xs_c;
-use CORBA::XS::pl_literal;
-use CORBA::XS::pl_name;
+use CORBA::Perl::name;
+use CORBA::Perl::literal;
 use CORBA::XS::pl_stub;
 
 my $parser = new Parser;
@@ -35,6 +35,7 @@ if ($^O eq 'MSWin32') {
 $parser->getopts("hi:J:vx");
 if ($parser->YYData->{opt_v}) {
 	print "CORBA::XS $CORBA::XS::xs_c::VERSION\n";
+	print "CORBA::Perl $CORBA::Perl::cdr::VERSION\n";
 	print "CORBA::C $CORBA::C::include::VERSION\n";
 	print "CORBA::IDL $CORBA::IDL::node::VERSION\n";
 	print "IDL $Parser::IDL_version\n";
@@ -81,11 +82,11 @@ if (        exists $parser->YYData->{root}
 	$parser->YYData->{root}->visit(new CORBA::C::literalVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::C::lengthVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::C::typeVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::C::incskelVisitor($parser,'',''));
+	$parser->YYData->{root}->visit(new CORBA::C::incskelVisitor($parser, '', ''));
 	$parser->YYData->{root}->visit(new CORBA::XS::CskeletonVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::XS::CstubVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::XS::PerlNameVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::XS::PerlLiteralVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::Perl::nameVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::Perl::literalVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::XS::PerlStubVisitor($parser));
 	$parser->YYData->{root}->visit(new CORBA::XS::C_Visitor($parser));
 }

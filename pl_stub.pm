@@ -5,11 +5,11 @@ use POSIX qw(ctime);
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-use CORBA::XS::pl_cdr;
+use CORBA::Perl::cdr;
 
 package CORBA::XS::PerlStubVisitor;
 
-use base qw(CORBA::XS::PerlCdrVisitor);
+use base qw(CORBA::Perl::cdrVisitor);
 use File::Basename;
 
 # needs $node->{pl_name} $node->{pl_package} (PerlNameVisitor)
@@ -38,7 +38,10 @@ sub new {
 	my $filename = basename($self->{srcname}, ".idl") . ".pm";
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
-	$self->{has_methodes} = 0;
+	$self->{has_methods} = 0;
+	$self->{pkg_modif} = 0;
+	$self->{stringify} = 1;
+	$self->{id} = 0;
 	$self->{num_key} = 'num_pl_stub';
 	return $self;
 }
@@ -54,6 +57,7 @@ sub visitSpecification {
 	$filename =~ s/^([^\/]+\/)+//;
 	$filename =~ s/\.idl$//i;
 	my $FH = $self->{out};
+	$self->{pkg_modif} = 0;
 	print $FH "#   This file was generated (by ",$0,"). DO NOT modify it.\n";
 	print $FH "# From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
 	print $FH "# Generation date : ",POSIX::ctime(time());
@@ -64,13 +68,18 @@ sub visitSpecification {
 	print $FH "\n";
 	print $FH "package main;\n";
 	print $FH "\n";
-	print $FH "use CORBA::XS::CORBA;\n";
+	print $FH "use CORBA::Perl::CORBA;\n";
 	print $FH "use Carp;\n";
 	print $FH "\n";
 	foreach (@{$node->{list_decl}}) {
-		$self->{symbtab}->Lookup($_)->visit($self);
+		$self->_get_defn($_)->visit($self);
+		if ($self->{pkg_modif}) {
+			$self->{pkg_modif} = 0;
+			print $FH "package main;\n";
+			print $FH "\n";
+		}
 	}
-	if ($self->{has_methodes}) {
+	if ($self->{has_methods}) {
 		print $FH "package ",$filename,";\n";
 		print $FH "\n";
 		print $FH "use strict;\n";
@@ -105,13 +114,14 @@ sub visitRegularInterface {
 	if ($self->{srcname} eq $node->{filename}) {
 		my $version;
 		my $FH = $self->{out};
+		$self->{pkg_modif} = 0;
 		print $FH "#\n";
 		print $FH "#   begin of interface ",$node->{pl_package},"\n";
 		print $FH "#\n";
 		print $FH "\n";
 		print $FH "package ",$node->{pl_package},";\n";
 		print $FH "\n";
-		print $FH "use CORBA::XS::CORBA;\n";
+		print $FH "use CORBA::Perl::CORBA;\n";
 		print $FH "use Carp;\n";
 		print $FH "\n";
 		foreach (@{$node->{list_decl}}) {
@@ -121,6 +131,11 @@ sub visitRegularInterface {
 				next;
 			}
 			$defn->visit($self);
+			if ($self->{pkg_modif}) {
+				$self->{pkg_modif} = 0;
+				print $FH "package ",$defn->{pl_package},";\n";
+				print $FH "\n";
+			}
 		}
 		print $FH "\n";
 		if (keys %{$node->{hash_attribute_operation}}) {
@@ -148,6 +163,7 @@ sub visitRegularInterface {
 		print $FH "#   end of interface ",$node->{pl_package},"\n";
 		print $FH "#\n";
 		print $FH "\n";
+		$self->{pkg_modif} = 1;
 	} else {
 		$self->_insert_use($node->{filename});
 	}
@@ -165,7 +181,7 @@ sub visitAbstractInterface {
 		print $FH "\n";
 		print $FH "package ",$node->{pl_package},";\n";
 		print $FH "\n";
-		print $FH "use CORBA::XS::CORBA;\n";
+		print $FH "use CORBA::Perl::CORBA;\n";
 		print $FH "use Carp;\n";
 		print $FH "\n";
 		foreach (@{$node->{list_decl}}) {
@@ -181,6 +197,7 @@ sub visitAbstractInterface {
 		print $FH "#   end of abstract interface ",$node->{pl_package},"\n";
 		print $FH "#\n";
 		print $FH "\n";
+		$self->{pkg_modif} = 1;
 	} else {
 		$self->_insert_use($node->{filename});
 	}
@@ -209,7 +226,7 @@ sub visitAbstractInterface {
 sub visitOperation {
 	my $self = shift;
 	my($node) = @_;
-	$self->{has_methodes} = 1;
+	$self->{has_methods} = 1;
 	my $FH = $self->{out};
 	print $FH "# ",$self->{itf},"::",$node->{pl_name},"\n";
 	print $FH "sub ",$node->{pl_name}," {\n";

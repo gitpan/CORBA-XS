@@ -8,7 +8,7 @@ use POSIX qw(ctime);
 package CORBA::XS::xs_c;
 
 use vars qw($VERSION);
-$VERSION = '0.31';
+$VERSION = '0.40';
 
 package CORBA::XS::C_Visitor;
 
@@ -26,7 +26,7 @@ sub new {
 	$self->{symbtab} = $parser->YYData->{symbtab};
 	$self->{modules} = [ @{$parser->YYData->{modules}} ];
 	$self->{inc} = {};
-	$self->{has_methodes} = 0;
+	$self->{has_methods} = 0;
 	$self->{num_key} = 'num_xs_c';
 	return $self;
 }
@@ -101,7 +101,7 @@ sub visitSpecification {
 	print $FH "\n";
 	print $FH "/* end of file : ",$self->{filename}," */\n";
 	close $FH;
-	unless ($self->{has_methodes}) {
+	unless ($self->{has_methods}) {
 		unlink $self->{filename}
 			 or die "can't delete $self->{filename} ($!).\n";
 		return;
@@ -117,8 +117,8 @@ sub visitSpecification {
 	print OUT "    'NAME'          => '",$src_name,"',\n";
 	print OUT "    'VERSION_FROM'  => '",$src_name,".pm', # finds \$VERSION\n";
 	print OUT "    'PREREQ_PM'     => {\n";
-	print OUT "                        'Error'             => 0,\n";
-	print OUT "                        'CORBA::XS::CORBA'  => 0\n";
+	print OUT "                        'Error'                 => 0,\n";
+	print OUT "                        'CORBA::Perl::CORBA'    => 0\n";
 	print OUT "    },\n";
 	print OUT "    'LIBS'          => [''], # e.g., '-lm'\n";
 	print OUT "    'DEFINE'        => '', # e.g., '-DHAVE_SOMETHING'\n";
@@ -335,7 +335,7 @@ sub visitOperation {
 	my $self = shift;
 	my($node) = @_;
 	my $FH = $self->{out};
-	$self->{has_methodes} = 1;
+	$self->{has_methods} = 1;
 	my $c_package = $node->{pl_package};
 	$c_package =~ s/::/_/g;
 	if (exists $node->{modifier}) {		# oneway
