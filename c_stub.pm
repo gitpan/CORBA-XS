@@ -7,9 +7,10 @@ use POSIX qw(ctime);
 
 use CORBA::XS::c_cdr;
 
-package XS_CstubVisitor;
+package CORBA::XS::CstubVisitor;
 
-use base qw(CcdrVisitor);
+use base qw(CORBA::XS::CcdrVisitor);
+use File::Basename;
 
 # needs $node->{c_name} (CnameVisitor), $node->{c_literal} (CliteralVisitor)
 
@@ -28,10 +29,7 @@ sub new {
 	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
 	$self->{symbtab} = $parser->YYData->{symbtab};
 	$self->{server} = 1;
-	my $filename = $self->{srcname};
-	$filename =~ s/^([^\/]+\/)+//;
-	$filename =~ s/\.idl$//i;
-	$filename = 'cdr_' . $filename . '.c';
+	my $filename = "cdr_" . basename($self->{srcname}, ".idl") . ".c";
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
 	$self->{num_key} = 'num_c_stub';
@@ -161,26 +159,26 @@ sub visitOperation {
 	unless ($type->isa("VoidType")) {				# return
 		$label_err = $type->{length};
 		$nb_param_out ++;
-		$node->{c_put_name} = Cname_put2->NameAttr($self->{symbtab}, $type, 'return') . "_ret";
+		$node->{c_put_name} = CORBA::XS::Cname_put2->NameAttr($self->{symbtab}, $type, 'return') . "_ret";
 	}
 	foreach (@{$node->{list_in}}) {					# parameter
 		$type = $self->_get_defn($_->{type});
-		$_->{c_get_ptr_name} = Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+		$_->{c_get_ptr_name} = CORBA::XS::Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
 		$label_err ||= $type->{length};
 		$nb_param_in ++;
 	}
 	foreach (@{$node->{list_inout}}) {				# parameter
 		$type = $self->_get_defn($_->{type});
-		$_->{c_get_ptr_name} = Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
-		$_->{c_put_name} = Cname_put2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+		$_->{c_get_ptr_name} = CORBA::XS::Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+		$_->{c_put_name} = CORBA::XS::Cname_put2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
 		$label_err ||= $type->{length};
 		$nb_param_in ++;
 		$nb_param_out ++;
 	}
 	foreach (@{$node->{list_out}}) {				# parameter
 		$type = $self->_get_defn($_->{type});
-		$_->{c_get_ptr_name} = Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
-		$_->{c_put_name} = Cname_put2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+		$_->{c_get_ptr_name} = CORBA::XS::Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+		$_->{c_put_name} = CORBA::XS::Cname_put2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
 		$nb_param_out ++;
 	}
 	my $nb_user_except = 0;
@@ -195,11 +193,11 @@ sub visitOperation {
 	print $FH "\tCORBA_Environment _Ev;\n";
 	$type = $self->_get_defn($node->{type});
 	unless ($type->isa("VoidType")) {
-		print $FH "\t",Cdecl_var->NameAttr($self->{symbtab}, $type, 'return', '_ret'),";\n";
+		print $FH "\t",CORBA::XS::Cdecl_var->NameAttr($self->{symbtab}, $type, 'return', '_ret'),";\n";
 	}
 	foreach (@{$node->{list_param}}) {	# parameter
 		$type = $self->_get_defn($_->{type});
-		print $FH "\t",Cdecl_var->NameAttr($self->{symbtab}, $type, $_->{attr}, $_->{c_name}),";\n";
+		print $FH "\t",CORBA::XS::Cdecl_var->NameAttr($self->{symbtab}, $type, $_->{attr}, $_->{c_name}),";\n";
 	}
 	if ($nb_param_in or $nb_param_out or $nb_user_except) {
 		print $FH "\tCORBA_char *_p;\n";
@@ -211,14 +209,14 @@ sub visitOperation {
 	print $FH "\n";
 	$type = $self->_get_defn($node->{type});
 	unless ($type->isa("VoidType")) {
-		my @init = Cinit_var->NameAttr($self->{symbtab}, $type, 'return', '_ret');
+		my @init = CORBA::XS::Cinit_var->NameAttr($self->{symbtab}, $type, 'return', '_ret');
 		foreach (@init) {
 			print $FH "\t",$_,";\n";
 		}
 	}
 	foreach (@{$node->{list_param}}) {	# parameter
 		$type = $self->_get_defn($_->{type});
-		my @init = Cinit_var->NameAttr($self->{symbtab}, $type, $_->{attr}, $_->{c_name});
+		my @init = CORBA::XS::Cinit_var->NameAttr($self->{symbtab}, $type, $_->{attr}, $_->{c_name});
 		foreach (@init) {
 			print $FH "\t",$_,";\n";
 		}
@@ -239,13 +237,13 @@ sub visitOperation {
 	if ($type->isa("VoidType")) {
 		print $FH "\t",$self->{prefix},$self->{itf},"_",$node->{c_name},"(\n";
 	} else {
-		print $FH "\t",Cname_call->NameAttr($self->{symbtab}, $type, 'return'),"_ret = ";
+		print $FH "\t",CORBA::XS::Cname_call->NameAttr($self->{symbtab}, $type, 'return'),"_ret = ";
 			print $FH $self->{prefix},$self->{itf},"_",$node->{c_name},"(\n";
 	}
 	print $FH "\t\t_ref,\n";
 	foreach (@{$node->{list_param}}) {
 		$type = $self->_get_defn($_->{type});
-		print $FH "\t\t",Cname_call->NameAttr($self->{symbtab}, $type, $_->{attr}),$_->{c_name},",";
+		print $FH "\t\t",CORBA::XS::Cname_call->NameAttr($self->{symbtab}, $type, $_->{attr}),$_->{c_name},",";
 			print $FH " /* ",$_->{attr}," (variable length) */\n" if (defined $type->{length});
 			print $FH " /* ",$_->{attr}," (fixed length) */\n" unless (defined $type->{length});
 	}
@@ -379,7 +377,7 @@ sub visitOperation {
 
 ##############################################################################
 
-package Cdecl_var;
+package CORBA::XS::Cdecl_var;
 
 #
 #	See	1.21	Summary of Argument/Result Passing
@@ -393,6 +391,8 @@ sub NameAttr {
 	my $class = ref $type;
 	$class = "BasicType" if ($type->isa("BasicType"));
 	$class = "AnyType" if ($type->isa("AnyType"));
+	$class = "BaseInterface" if ($type->isa("BaseInterface"));
+	$class = "ForwardBaseInterface" if ($type->isa("ForwardBaseInterface"));
 	my $func = 'NameAttr' . $class;
 	if($proto->can($func)) {
 		return $proto->$func($symbtab, $type, $attr, $name);
@@ -401,16 +401,12 @@ sub NameAttr {
 	}
 }
 
-sub NameAttrRegularInterface {
-	warn __PACKAGE__,"::NameAttrRegularInterface : not supplied \n";
+sub NameAttrBaseInterface {
+	warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
 }
 
-sub NameAttrAbstractInterface {
-	warn __PACKAGE__,"::NameAttrAbstractInterface : not supplied \n";
-}
-
-sub NameAttrLocalInterface {
-	warn __PACKAGE__,"::NameAttrLocalInterface : not supplied \n";
+sub NameAttrForwardBaseInterface {
+	warn __PACKAGE__,"::NameAttrForwardInterface : not supplied \n";
 }
 
 sub NameAttrTypeDeclarator {
@@ -599,7 +595,7 @@ sub NameAttrFixedPtType {
 
 ##############################################################################
 
-package Cinit_var;
+package CORBA::XS::Cinit_var;
 
 #
 #	See	1.21	Summary of Argument/Result Passing
@@ -613,6 +609,8 @@ sub NameAttr {
 	my $class = ref $type;
 	$class = "BasicType" if ($type->isa("BasicType"));
 	$class = "AnyType" if ($type->isa("AnyType"));
+	$class = "BaseInterface" if ($type->isa("BaseInterface"));
+	$class = "ForwardBaseInterface" if ($type->isa("ForwardBaseInterface"));
 	my $func = 'NameAttr' . $class;
 	if($proto->can($func)) {
 		return $proto->$func($symbtab, $type, $attr, $name);
@@ -621,16 +619,12 @@ sub NameAttr {
 	}
 }
 
-sub NameAttrRegularInterface {
-	warn __PACKAGE__,"::NameAttrRegularInterface : not supplied \n";
+sub NameAttrBaseInterface {
+	warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
 }
 
-sub NameAttrAbstractInterface {
-	warn __PACKAGE__,"::NameAttrAbstractInterface : not supplied \n";
-}
-
-sub NameAttrLocalInterface {
-	warn __PACKAGE__,"::NameAttrLocalInterface : not supplied \n";
+sub NameAttrForwardBaseInterface {
+	warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
 }
 
 sub NameAttrTypeDeclarator {
@@ -841,7 +835,7 @@ sub NameAttrFixedPtType {
 
 ##############################################################################
 
-package Cname_call;
+package CORBA::XS::Cname_call;
 
 #
 #	See	1.21	Summary of Argument/Result Passing
@@ -855,6 +849,8 @@ sub NameAttr {
 	my $class = ref $type;
 	$class = "BasicType" if ($type->isa("BasicType"));
 	$class = "AnyType" if ($type->isa("AnyType"));
+	$class = "BaseInterface" if ($type->isa("BaseInterface"));
+	$class = "ForwardBaseInterface" if ($type->isa("ForwardBaseInterface"));
 	my $func = 'NameAttr' . $class;
 	if($proto->can($func)) {
 		return $proto->$func($symbtab, $type, $attr);
@@ -863,16 +859,12 @@ sub NameAttr {
 	}
 }
 
-sub NameAttrRegularInterface {
-	warn __PACKAGE__,"::NameAttrRegularInterface : not supplied \n";
+sub NameAttrBaseInterface {
+	warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
 }
 
 sub NameAttrAbstractInterface {
-	warn __PACKAGE__,"::NameAttrAbstractInterface : not supplied \n";
-}
-
-sub NameAttrLocalInterface {
-	warn __PACKAGE__,"::NameAttrLocalInterface : not supplied \n";
+	warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
 }
 
 sub NameAttrTypeDeclarator {
@@ -1043,7 +1035,7 @@ sub NameAttrFixedPtType {
 
 ##############################################################################
 
-package Cname_put2;
+package CORBA::XS::Cname_put2;
 
 #
 #	See	1.21	Summary of Argument/Result Passing
@@ -1057,6 +1049,8 @@ sub NameAttr {
 	my $class = ref $type;
 	$class = "BasicType" if ($type->isa("BasicType"));
 	$class = "AnyType" if ($type->isa("AnyType"));
+	$class = "BaseInterface" if ($type->isa("BaseInterface"));
+	$class = "ForwardBaseInterface" if ($type->isa("ForwardBaseInterface"));
 	my $func = 'NameAttr' . $class;
 	if($proto->can($func)) {
 		return $proto->$func($symbtab, $type, $attr);
@@ -1065,16 +1059,12 @@ sub NameAttr {
 	}
 }
 
-sub NameAttrRegularInterface {
-	warn __PACKAGE__,"::NameAttrRegularInterface : not supplied \n";
+sub NameAttrBaseInterface {
+	warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
 }
 
-sub NameAttrAbstractInterface {
-	warn __PACKAGE__,"::NameAttrAbstractInterface : not supplied \n";
-}
-
-sub NameAttrLocalInterface {
-	warn __PACKAGE__,"::NameAttrLocalInterface : not supplied \n";
+sub NameAttrForwardBaseInterface {
+	warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
 }
 
 sub NameAttrTypeDeclarator {
@@ -1239,7 +1229,7 @@ sub NameAttrFixedPtType {
 
 ##############################################################################
 
-package Cptrname_get2;
+package CORBA::XS::Cptrname_get2;
 
 #
 #	See	1.21	Summary of Argument/Result Passing
@@ -1253,6 +1243,8 @@ sub NameAttr {
 	my $class = ref $type;
 	$class = "BasicType" if ($type->isa("BasicType"));
 	$class = "AnyType" if ($type->isa("AnyType"));
+	$class = "BaseInterface" if ($type->isa("BaseInterface"));
+	$class = "ForwardBaseInterface" if ($type->isa("ForwardBaseInterface"));
 	my $func = 'NameAttr' . $class;
 	if($proto->can($func)) {
 		return $proto->$func($symbtab, $type, $attr);
@@ -1261,16 +1253,12 @@ sub NameAttr {
 	}
 }
 
-sub NameAttrRegularInterface {
-	warn __PACKAGE__,"::NameAttrRegularInterface : not supplied \n";
+sub NameAttrBaseInterface {
+	warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
 }
 
-sub NameAttrAbstractInterface {
-	warn __PACKAGE__,"::NameAttrAbstractInterface : not supplied \n";
-}
-
-sub NameAttrLocalInterface {
-	warn __PACKAGE__,"::NameAttrLocalInterface : not supplied \n";
+sub NameAttrForwardBaseInterface {
+	warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
 }
 
 sub NameAttrTypeDeclarator {

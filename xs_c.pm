@@ -5,10 +5,14 @@ use POSIX qw(ctime);
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-package XS_C_Visitor;
+package CORBA::XS;
 
 use vars qw($VERSION);
-$VERSION = '0.21';
+$VERSION = '0.30';
+
+package CORBA::XS::C_Visitor;
+
+use File::Basename;
 
 sub new {
 	my $proto = shift;
@@ -42,9 +46,7 @@ sub _insert_inc {
 	my $FH = $self->{out};
 	if (! exists $self->{inc}->{$filename}) {
 		$self->{inc}->{$filename} = 1;
-		$filename =~ s/^([^\/]+\/)+//;
-		$filename =~ s/\.idl$//i;
-		$filename .= '.h';
+		$filename = basename($filename, ".idl") . ".h";
 		print $FH "#include \"",$filename,"\"\n";
 	}
 }
@@ -66,9 +68,7 @@ sub _get_defn {
 sub visitSpecification {
 	my $self = shift;
 	my($node) = @_;
-	my $src_name = $self->{srcname};
-	$src_name =~ s/^([^\/]+\/)+//;
-	$src_name =~ s/\.idl$//i;
+	my $src_name = basename($self->{srcname}, ".idl");
 	$self->open_stream($src_name . '.c');
 	my $FH = $self->{out};
 	print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
@@ -263,10 +263,6 @@ sub visitAbstractInterface {
 	}
 }
 
-sub visitLocalInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
 sub visitForwardRegularInterface {
 	# empty
 }
@@ -275,31 +271,11 @@ sub visitForwardAbstractInterface {
 	# empty
 }
 
-sub visitForwardLocalInterface {
+sub visitBaseInterface {
 	# C mapping is aligned with CORBA 2.1
 }
 
-#
-#	3.9		Value Declaration
-#
-
-sub visitRegularValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitBoxedValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitAbstractValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardRegularValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardAbstractValue {
+sub visitForwardBaseInterface {
 	# C mapping is aligned with CORBA 2.1
 }
 

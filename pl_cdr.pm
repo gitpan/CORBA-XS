@@ -4,13 +4,15 @@ use strict;
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-package PerlCdrVisitor;
+package CORBA::XS::PerlCdrVisitor;
+
+use File::Basename;
 
 # needs $node->{pl_name} $node->{pl_package} (PerlNameVisitor)
 
 sub open_stream {
 	my $self = shift;
-	my($filename) = @_;
+	my ($filename) = @_;
 	open(OUT, "> $filename")
 			or die "can't open $filename ($!).\n";
 	$self->{out} = \*OUT;
@@ -19,13 +21,11 @@ sub open_stream {
 
 sub _insert_use {
 	my $self = shift;
-	my($module) = @_;
+	my ($module) = @_;
 	my $FH = $self->{out};
-	$module =~ s/^([^\/]+\/)+//;
-	$module =~ s/\.idl$//i;
+	$module = basename($module, ".idl");
 	unless (exists $self->{use}->{$module}) {
 		$self->{use}->{$module} = 1;
-		push @{$self->{parser}->YYData->{modules}}, $module;
 		print $FH "use ",$self->{path_use},$module,";\n";
 		print $FH "\n";
 	}
@@ -33,7 +33,7 @@ sub _insert_use {
 
 sub _get_defn {
 	my $self = shift;
-	my($defn) = @_;
+	my ($defn) = @_;
 	if (ref $defn) {
 		return $defn;
 	} else {
@@ -51,7 +51,7 @@ sub _get_defn {
 
 sub visitModules {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	unless (exists $node->{$self->{num_key}}) {
 		$node->{$self->{num_key}} = 0;
 	}
@@ -62,10 +62,11 @@ sub visitModules {
 
 sub visitModule {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $FH = $self->{out};
 	if ($self->{srcname} eq $node->{filename}) {
 		my $defn = $self->{symbtab}->Lookup($node->{full});
+		$self->{pkg_modif} = 0;
 		print $FH "#\n";
 		print $FH "#   begin of module ",$defn->{pl_package},"\n";
 		print $FH "#\n";
@@ -76,12 +77,18 @@ sub visitModule {
 		print $FH "\n";
 		foreach (@{$node->{list_decl}}) {
 			$self->_get_defn($_)->visit($self);
+			if ($self->{pkg_modif}) {
+				$self->{pkg_modif} = 0;
+				print $FH "package ",$defn->{pl_package},";\n";
+				print $FH "\n";
+			}
 		}
 		print $FH "\n";
 		print $FH "#\n";
 		print $FH "#   end of module ",$defn->{pl_package},"\n";
 		print $FH "#\n";
 		print $FH "\n";
+		$self->{pkg_modif} = 1;
 	} else {
 		$self->_insert_use($node->{filename});
 	}
@@ -91,43 +98,11 @@ sub visitModule {
 #	3.8		Interface Declaration		(specialized)
 #
 
-sub visitLocalInterface {
+sub visitBaseInterface {
 	# empty
 }
 
-sub visitForwardRegularInterface {
-	# empty
-}
-
-sub visitForwardAbstractInterface {
-	# empty
-}
-
-sub visitForwardLocalInterface {
-	# empty
-}
-
-#
-#	3.9		Value Declaration
-#
-
-sub visitRegularValue {
-	# empty
-}
-
-sub visitBoxedValue {
-	# empty
-}
-
-sub visitAbstractValue {
-	# empty
-}
-
-sub visitForwardRegularValue {
-	# empty
-}
-
-sub visitForwardAbstractValue {
+sub visitForwardBaseInterface {
 	# empty
 }
 
@@ -137,7 +112,7 @@ sub visitForwardAbstractValue {
 
 sub visitConstant {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	if ($self->{srcname} eq $node->{filename}) {
 		my $FH = $self->{out};
 		print $FH "# ",$node->{pl_package},"::",$node->{pl_name},"\n";
@@ -154,7 +129,7 @@ sub visitConstant {
 
 sub visitTypeDeclarators {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
 		$self->_get_defn($_)->visit($self);
 	}
@@ -162,7 +137,7 @@ sub visitTypeDeclarators {
 
 sub visitTypeDeclarator {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{modifier});	# native IDL2.2
 	my $type = $self->_get_defn($node->{type});
 	if (	   $type->isa('StructType')
@@ -255,7 +230,7 @@ sub visitTypeDeclarator {
 
 sub visitStructType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{pl_package} . "::" . $node->{pl_name};
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
@@ -271,8 +246,8 @@ sub visitStructType {
 	if ($self->{srcname} eq $node->{filename}) {
 		$self->{marshal} = '';
 		$self->{demarshal} = '';
-		foreach (@{$node->{list_value}}) {
-			my $member = $self->_get_defn($_);			# single or array
+		foreach (@{$node->{list_member}}) {
+			my $member = $self->_get_defn($_);			# member
 			$self->{val} = "\$value->{" . $member->{idf} . "}";
 			$member->visit($self);
 		}
@@ -285,8 +260,8 @@ sub visitStructType {
 		print $FH "\t\t\t\tunless (defined \$value);\n";
 		print $FH "\t\tcroak \"invalid struct for '",$node->{idf},"' (not a HASH reference).\\n\"\n";
 		print $FH "\t\t\t\tunless (ref \$value eq 'HASH');\n";
-		foreach (@{$node->{list_value}}) {
-			my $member = $self->_get_defn($_);			# single or array
+		foreach (@{$node->{list_member}}) {
+			my $member = $self->_get_defn($_);			# member
 			print $FH "\t\tcroak \"no member '",$member->{idf},"' in structure '",$node->{idf},"'.\\n\"\n";
 			print $FH "\t\t\t\tunless (exists \$value->{",$member->{idf},"});\n";
 		}
@@ -304,9 +279,19 @@ sub visitStructType {
 	}
 }
 
-sub visitArray {
+sub visitMember {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
+	if (exists $node->{array_size}) {
+		$self->_visitArray($node);
+	} else {
+		$self->_visitSingle($node);
+	}
+}
+
+sub _visitArray {
+	my $self = shift;
+	my ($node) = @_;
 	my $n = 0;
 	my $type = $self->_get_defn($node->{type});
 	$self->{marshal} .= "\t\t\$_ = " . $self->{val} . ";\n";
@@ -347,9 +332,9 @@ sub visitArray {
 	$self->{demarshal} .= "\t\t" . $self->{val} . " = \\\@" . $node->{idf} . "_tab1;\n";
 }
 
-sub visitSingle {
+sub _visitSingle {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
 	if (exists $type->{max}) {
 		$self->{marshal}  .= "\t\t" . $type->{pl_package} . '::' . $type->{pl_name} . "__marshal";
@@ -367,7 +352,7 @@ sub visitSingle {
 
 sub visitUnionType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{pl_package} . "::" . $node->{pl_name};
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
@@ -404,7 +389,7 @@ sub visitUnionType {
 					$self->{marshal} .= "\t} elsif (\$d " . $equal . " " . $_->{pl_literal} . ") {\n";
 					$self->{demarshal} .= "\t} elsif (\$d " . $equal . " " . $_->{pl_literal} . ") {\n";
 					$self->{val} = "\$value";
-					$self->_get_defn($case->{element}->{value})->visit($self);	# array or single
+					$self->_get_defn($case->{element}->{value})->visit($self);	# member
 				}
 			}
 		}
@@ -412,7 +397,7 @@ sub visitUnionType {
 			$self->{marshal} .= "\t} else {\t# default\n";
 			$self->{demarshal} .= "\t} else {\t# default\n";
 			$self->{val} = "\$value";
-			$self->_get_defn($default->{element}->{value})->visit($self);	# array or single
+			$self->_get_defn($default->{element}->{value})->visit($self);	# member
 		} else {
 			$self->{marshal} .= "\t} else {\n";
 			$self->{marshal} .= "\t\tcroak \"invalid discriminator (\$d) for '" . $node->{idf} . "'.\\n\";\n";
@@ -470,7 +455,7 @@ sub visitForwardUnionType {
 
 sub visitEnumType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{pl_package} . "::" . $node->{pl_name};
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
@@ -511,7 +496,7 @@ sub visitEnumType {
 
 sub visitEnum {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $FH = $self->{out};
 	print $FH "sub ",$node->{pl_name}," () {\n";
 	print $FH "\treturn '",$node->{pl_name},"';\n";
@@ -524,7 +509,7 @@ sub visitEnum {
 
 sub visitSequenceType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{pl_package} . "::" . $node->{pl_name};
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
@@ -594,7 +579,7 @@ sub visitFixedPtConstType {
 
 sub visitException {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{pl_package} . "::" . $node->{pl_name};
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
@@ -615,10 +600,10 @@ sub visitException {
 	if ($self->{srcname} eq $node->{filename}) {
 		$self->{marshal} = '';
 		$self->{demarshal} = '';
-		foreach (@{$node->{list_value}}) {
-			my $member = $self->_get_defn($_);			# single or array
+		foreach (@{$node->{list_member}}) {
+			my $member = $self->_get_defn($_);			# member
 			$self->{val} = "\$value->{" . $member->{idf} . "}";
-			$member->visit($self);				# single or array
+			$member->visit($self);
 		}
 		delete $self->{val};
 		my $FH = $self->{out};
@@ -627,8 +612,8 @@ sub visitException {
 		print $FH "\t\tmy (\$r_buffer,\$value) = \@_;\n";
 		print $FH "\t\tcroak \"undefined value for '",$node->{idf},"'.\\n\"\n";
 		print $FH "\t\t\t\tunless (defined \$value);\n";
-		foreach (@{$node->{list_value}}) {
-			my $member = $self->_get_defn($_);			# single or array
+		foreach (@{$node->{list_member}}) {
+			my $member = $self->_get_defn($_);			# member
 			print $FH "\t\tcroak \"no member '",$member->{idf},"' in structure '",$node->{idf},"'.\\n\"\n";
 			print $FH "\t\t\t\tunless (exists \$value->{",$member->{idf},"});\n";
 		}
@@ -656,9 +641,9 @@ sub visitException {
 		print $FH "sub stringify {\n";
 		print $FH "\tmy \$self = shift;\n";
 		print $FH "\tmy \$str = \$self->SUPER::stringify() . \"\\n\";\n";
-		if (scalar(@{$node->{list_value}})) {
-			foreach (@{$node->{list_value}}) {
-				my $member = $self->_get_defn($_);			# single or array
+		if (scalar(@{$node->{list_member}})) {
+			foreach (@{$node->{list_member}}) {
+				my $member = $self->_get_defn($_);			# member
 				print $FH "\t\$str .= \"\\t",$member->{idf}," => \$self->{",$member->{idf},"}\\n\";\n";
 			}
 		} else {
@@ -668,8 +653,7 @@ sub visitException {
 		print $FH "\treturn \$str;\n";
 		print $FH "}\n";
 		print $FH "\n";
-		print $FH "package ",$node->{pl_package},";\n";
-		print $FH "\n";
+		$self->{pkg_modif} = 1;
 	}
 }
 
@@ -683,7 +667,7 @@ sub visitException {
 
 sub visitAttribute {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{_get}->visit($self);
 	$node->{_set}->visit($self) if (exists $node->{_set});
 }
@@ -697,46 +681,6 @@ sub visitTypeId {
 }
 
 sub visitTypePrefix {
-	# empty
-}
-
-#
-#	3.16	Event Declaration
-#
-
-sub visitRegularEvent {
-	# empty
-}
-
-sub visitAbstractEvent {
-	# empty
-}
-
-sub visitForwardRegularEvent {
-	# empty
-}
-
-sub visitForwardAbstractEvent {
-	# empty
-}
-
-#
-#	3.17	Component Declaration
-#
-
-sub visitComponent {
-	# empty
-}
-
-sub visitForwardComponent {
-	# empty
-}
-
-#
-#	3.18	Home Declaration
-#
-
-sub visitHome {
 	# empty
 }
 

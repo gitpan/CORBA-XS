@@ -21,7 +21,7 @@ $parser->YYData->{verbose_error} = 1;		# 0, 1
 $parser->YYData->{verbose_warning} = 1;		# 0, 1
 $parser->YYData->{verbose_info} = 1;		# 0, 1
 $parser->YYData->{verbose_deprecated} = 0;	# 0, 1 (concerns only version '2.4' and upper)
-$parser->YYData->{symbtab} = new Symbtab($parser);
+$parser->YYData->{symbtab} = new CORBA::IDL::Symbtab($parser);
 my $cflags = '-D__idl2xs_c';
 if ($Parser::IDL_version lt '3.0') {
 	$cflags .= ' -D_PRE_3_0_COMPILER_';
@@ -32,7 +32,20 @@ if ($^O eq 'MSWin32') {
 } else {
 	$parser->YYData->{preprocessor} = 'cpp -C ' . $cflags;
 }
-$parser->getopts("i:J:x");
+$parser->getopts("hi:J:vx");
+if ($parser->YYData->{opt_v}) {
+	print "CORBA::XS $CORBA::XS::VERSION\n";
+	print "CORBA::C $CORBA::C::VERSION\n";
+	print "CORBA::IDL $CORBA::IDL::VERSION\n";
+	print "IDL $Parser::IDL_version\n";
+	print "$0\n";
+	print "Perl $]\n";
+	exit;
+}
+if ($parser->YYData->{opt_h}) {
+	use Pod::Usage;
+	pod2usage(-verbose => 1);
+}
 $parser->Run(@ARGV);
 $parser->YYData->{symbtab}->CheckForward();
 $parser->YYData->{symbtab}->CheckRepositoryID();
@@ -59,22 +72,22 @@ if (        $parser->YYData->{verbose_deprecated}
 
 if (        exists $parser->YYData->{root}
 		and ! exists $parser->YYData->{nb_error} ) {
-	$parser->YYData->{root}->visitName(new repositoryIdVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::IDL::repositoryIdVisitor($parser));
 	if (        $Parser::IDL_version ge '3.0'
 			and $parser->YYData->{opt_x} ) {
 		$parser->YYData->{symbtab}->Export();
 	}
-	$parser->YYData->{root}->visitName(new CnameVisitor($parser));
-	$parser->YYData->{root}->visitName(new CliteralVisitor($parser));
-	$parser->YYData->{root}->visitName(new ClengthVisitor($parser));
-	$parser->YYData->{root}->visitName(new CtypeVisitor($parser));
-	$parser->YYData->{root}->visit(new CincskelVisitor($parser,'',''));
-	$parser->YYData->{root}->visit(new CskeletonVisitor($parser));
-	$parser->YYData->{root}->visit(new XS_CstubVisitor($parser));
-	$parser->YYData->{root}->visitName(new PerlNameVisitor($parser));
-	$parser->YYData->{root}->visitName(new PerlLiteralVisitor($parser));
-	$parser->YYData->{root}->visit(new XS_PerlStubVisitor($parser));
-	$parser->YYData->{root}->visit(new XS_C_Visitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::C::nameVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::C::literalVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::C::lengthVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::C::typeVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::C::incskelVisitor($parser,'',''));
+	$parser->YYData->{root}->visit(new CORBA::XS::CskeletonVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::XS::CstubVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::XS::PerlNameVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::XS::PerlLiteralVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::XS::PerlStubVisitor($parser));
+	$parser->YYData->{root}->visit(new CORBA::XS::C_Visitor($parser));
 }
 
 __END__
@@ -83,13 +96,13 @@ __END__
 
 idl2xs_c - IDL compiler to extension interface between Perl and C code
 
-=head1 SYNOPSYS
+=head1 SYNOPSIS
 
 idl2xs_c [options] I<spec>.idl
 
 =head1 OPTIONS
 
-All options are forwarded to C preprocessor, except -i -J -x.
+All options are forwarded to C preprocessor, except -h -i -J -v -x.
 
 With the GNU C Compatible Compiler Processor, useful options are :
 
@@ -111,6 +124,10 @@ Specific options :
 
 =over 8
 
+=item B<-h>
+
+Display help.
+
 =item B<-i> I<directory>
 
 Specify a path for import (only for version 3.0).
@@ -118,6 +135,10 @@ Specify a path for import (only for version 3.0).
 =item B<-J> I<directory>
 
 Specify a path for Perl package importation (use I<package>;).
+
+=item B<-v>
+
+Display version.
 
 =item B<-x>
 
@@ -296,7 +317,7 @@ cpp, perl, idl2html, idl2c
 
 =head1 COPYRIGHT
 
-(c) 2002-2003 Francois PERRAD, France. All rights reserved.
+(c) 2002-2004 Francois PERRAD, France. All rights reserved.
 
 This program and all CORBA::XS modules are distributed
 under the terms of the Artistic Licence.

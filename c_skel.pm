@@ -7,7 +7,9 @@ use UNIVERSAL;
 #			C Language Mapping Specification, New Edition June 1999
 #
 
-package CskeletonVisitor;
+package CORBA::XS::CskeletonVisitor;
+
+use File::Basename;
 
 # needs $node->{c_name} (CnameVisitor) and $node->{c_arg} (CincludeVisitor)
 
@@ -16,17 +18,14 @@ sub new {
 	my $class = ref($proto) || $proto;
 	my $self = {};
 	bless($self, $class);
-	my($parser,$prefix) = @_;
+	my ($parser, $prefix) = @_;
 	$prefix = 'skel_' if (!defined $prefix);
 #	$self->{prefix} = $prefix;
 	$self->{prefix} = '';
 	$self->{srcname} = $parser->YYData->{srcname};
 	$self->{symbtab} = $parser->YYData->{symbtab};
 	$self->{inc} = {};
-	my $filename = $self->{srcname};
-	$filename =~ s/^([^\/]+\/)+//;
-	$filename =~ s/\.idl$//i;
-	$filename = $prefix . $filename . '.c0';
+	my $filename = $prefix . basename($self->{srcname}, ".idl") . ".c0";
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
 	$self->{num_key} = 'num_skel_c';
@@ -35,7 +34,7 @@ sub new {
 
 sub open_stream {
 	my $self = shift;
-	my($filename) = @_;
+	my ($filename) = @_;
 	open(OUT, "> $filename")
 			or die "can't open $filename ($!).\n";
 	$self->{filename} = $filename;
@@ -43,7 +42,7 @@ sub open_stream {
 
 sub _get_defn {
 	my $self = shift;
-	my($defn) = @_;
+	my ($defn) = @_;
 	if (ref $defn) {
 		return $defn;
 	} else {
@@ -57,7 +56,7 @@ sub _get_defn {
 
 sub visitSpecification {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $filename = $self->{srcname};
 	$filename =~ s/^([^\/]+\/)+//;
 	$filename =~ s/\.idl$//i;
@@ -83,7 +82,7 @@ sub visitSpecification {
 
 sub visitModules {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	unless (exists $node->{$self->{num_key}}) {
 		$node->{$self->{num_key}} = 0;
 	}
@@ -94,7 +93,7 @@ sub visitModules {
 
 sub visitModule {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	if ($self->{srcname} eq $node->{filename}) {
 		my $defn = $self->{symbtab}->Lookup($node->{full});
 		print OUT "/*\n";
@@ -115,7 +114,7 @@ sub visitModule {
 
 sub visitRegularInterface {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	if ($self->{srcname} eq $node->{filename}) {
 		print OUT "/* START_EDIT (",$node->{c_name},") */\n";
 		print OUT "\n";
@@ -135,47 +134,15 @@ sub visitRegularInterface {
 	}
 }
 
-sub visitAbstractInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitLocalInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
 sub visitForwardRegularInterface {
 	# empty
 }
 
-sub visitForwardAbstractInterface {
+sub visitBaseInterface {
 	# C mapping is aligned with CORBA 2.1
 }
 
-sub visitForwardLocalInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
-#
-#	3.9		Value Declaration
-#
-
-sub visitRegularValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitBoxedValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitAbstractValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardRegularValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardAbstractValue {
+sub visitForwardBaseInterface {
 	# C mapping is aligned with CORBA 2.1
 }
 
@@ -233,7 +200,7 @@ sub visitException {
 
 sub visitOperation {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	print OUT "\n";
 	print OUT "/*============================================================*/\n";
 	print OUT "/* ARGSUSED */\n";
@@ -272,7 +239,7 @@ sub visitOperation {
 
 sub visitAttribute {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{_get}->visit($self);
 	$node->{_set}->visit($self) if (exists $node->{_set});
 }
@@ -287,46 +254,6 @@ sub visitTypeId {
 
 sub visitTypePrefix {
 	# empty
-}
-
-#
-#	3.16	Event Declaration
-#
-
-sub visitRegularEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitAbstractEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardRegularEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardAbstractEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-#
-#	3.17	Component Declaration
-#
-
-sub visitComponent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardComponent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-#
-#	3.18	Home Declaration
-#
-
-sub visitHome {
-	# C mapping is aligned with CORBA 2.1
 }
 
 1;

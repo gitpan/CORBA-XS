@@ -4,13 +4,13 @@ use strict;
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-package CcdrVisitor;
+package CORBA::XS::CcdrVisitor;
 
 # needs $node->{c_name} (CnameVisitor), $node->{c_literal} (CliteralVisitor)
 
 sub open_stream {
 	my $self = shift;
-	my($filename) = @_;
+	my ($filename) = @_;
 	open(OUT, "> $filename")
 			or die "can't open $filename ($!).\n";
 	$self->{out} = \*OUT;
@@ -19,7 +19,7 @@ sub open_stream {
 
 sub _get_defn {
 	my $self = shift;
-	my($defn) = @_;
+	my ($defn) = @_;
 	if (ref $defn) {
 		return $defn;
 	} else {
@@ -37,7 +37,7 @@ sub _get_defn {
 
 sub visitModules {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	unless (exists $node->{$self->{num_key}}) {
 		$node->{$self->{num_key}} = 0;
 	}
@@ -48,7 +48,7 @@ sub visitModules {
 
 sub visitModule {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $FH = $self->{out};
 	my $defn = $self->{symbtab}->Lookup($node->{full});
 	print $FH "/*\n";
@@ -68,47 +68,15 @@ sub visitModule {
 #	3.8		Interface Declaration		(specialized)
 #
 
-sub visitAbstractInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitLocalInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
 sub visitForwardRegularInterface {
 	# empty
 }
 
-sub visitForwardAbstractInterface {
+sub visitBaseInterface {
 	# C mapping is aligned with CORBA 2.1
 }
 
-sub visitForwardLocalInterface {
-	# C mapping is aligned with CORBA 2.1
-}
-
-#
-#	3.9		Value Declaration
-#
-
-sub visitRegularValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitBoxedValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitAbstractValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardRegularValue {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardAbstractValue {
+sub visitForwardBaseInterface {
 	# C mapping is aligned with CORBA 2.1
 }
 
@@ -126,7 +94,7 @@ sub visitConstant {
 
 sub visitTypeDeclarators {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_decl}}) {
 		$self->_get_defn($_)->visit($self);
 	}
@@ -134,7 +102,7 @@ sub visitTypeDeclarators {
 
 sub visitTypeDeclarator {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{modifier});	# native IDL2.2
 	my $type = $self->_get_defn($node->{type});
 	if (	   $type->isa('StructType')
@@ -291,7 +259,7 @@ sub visitTypeDeclarator {
 
 sub visitStructType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $self->{done_hash}->{$node->{c_name}});
 	$self->{done_hash}->{$node->{c_name}} = 1;
 	foreach (@{$node->{list_expr}}) {
@@ -370,9 +338,19 @@ sub visitStructType {
 	delete $self->{union};
 }
 
-sub visitArray {
+sub visitMember {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
+	if (exists $node->{array_size}) {
+		$self->_visitArray($node);
+	} else {
+		$self->_visitSingle($node);
+	}
+}
+
+sub _visitArray {
+	my $self = shift;
+	my ($node) = @_;
 
 	my $start = "";
 	my $nb;
@@ -445,9 +423,9 @@ sub visitArray {
 	}
 }
 
-sub visitSingle {
+sub _visitSingle {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $tab = '';
 	$tab = "\t" if ($self->{union});
 	my $type = $self->_get_defn($node->{type});
@@ -474,7 +452,7 @@ sub visitSingle {
 
 sub visitUnionType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $self->{done_hash}->{$node->{c_name}});
 	$self->{done_hash}->{$node->{c_name}} = 1;
 	foreach (@{$node->{list_expr}}) {
@@ -578,7 +556,7 @@ sub visitUnionType {
 
 sub visitCase {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $FH = $self->{out};
 	foreach (@{$node->{list_label}}) {	# default or expression
 		if ($_->isa('Default')) {
@@ -599,7 +577,7 @@ sub visitCase {
 			$self->{free}      .= "\t\tcase " . $_->{c_literal} . ":\\\n";
 		}
 	}
-	$self->_get_defn($node->{element}->{value})->visit($self);		# single or array
+	$self->_get_defn($node->{element}->{value})->visit($self);		# member
 	$self->{add_size}  .= "\t\tbreak;\\\n";
 	$self->{put}       .= "\t\tbreak;\\\n";
 	$self->{get}       .= "\t\tbreak;\\\n";
@@ -633,7 +611,7 @@ sub visitEnumType {
 
 sub visitSequenceType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
 	if (	   $type->isa('SequenceType')
 			or $type->isa('FixedPtType') ) {
@@ -694,7 +672,11 @@ sub visitSequenceType {
 		print $FH "\t\t\t(v)->_buffer = NULL;\\\n";
 		print $FH "\t\t}\\\n";
 		print $FH "\t}\n";
-		print $FH "#define ALLOC_GET_out_",$node->{c_name}," GET_out_",$node->{c_name},"\n";
+		print $FH "#define ALLOC_GET_out_",$node->{c_name},"(ptr,v) {\\\n";
+		print $FH "\t\tv = ",$node->{c_name},"__alloc(1);\\\n";
+		print $FH "\t\tif (NULL == (v)) goto err;\\\n";
+		print $FH "\t\tGET_out_",$node->{c_name},"(ptr, v);\\\n";
+		print $FH "\t}\n";
 	} else {
 		print $FH "#define GET_",$node->{c_name},"(ptr,v) {\\\n";
 		print $FH "\t\t",$type->{c_name}," * ",$node->{c_name},"_ptr;\\\n";
@@ -739,13 +721,13 @@ sub visitSequenceType {
 
 sub visitFixedPtType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	warn __PACKAGE__,"::visitFixedPtType : TODO.\n";
 }
 
 sub visitFixedPtConstType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	warn __PACKAGE__,"::visitFixedPtConstType : TODO.\n";
 }
 
@@ -755,7 +737,7 @@ sub visitFixedPtConstType {
 
 sub visitException {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return unless (exists $node->{list_expr});
 	foreach (@{$node->{list_expr}}) {
 		my $type = $self->_get_defn($_->{type});
@@ -821,7 +803,7 @@ sub visitException {
 
 sub visitAttribute {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{_get}->visit($self);
 	$node->{_set}->visit($self) if (exists $node->{_set});
 }
@@ -836,46 +818,6 @@ sub visitTypeId {
 
 sub visitTypePrefix {
 	# empty
-}
-
-#
-#	3.16	Event Declaration
-#
-
-sub visitRegularEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitAbstractEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardRegularEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardAbstractEvent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-#
-#	3.17	Component Declaration
-#
-
-sub visitComponent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-sub visitForwardComponent {
-	# C mapping is aligned with CORBA 2.1
-}
-
-#
-#	3.18	Home Declaration
-#
-
-sub visitHome {
-	# C mapping is aligned with CORBA 2.1
 }
 
 1;

@@ -1,5 +1,13 @@
 Revision history for Perl extension CORBA::XS.
 
+0.30  Thu Feb 19 18:30:00 2004
+	- compatible  with CORBA::IDL 2.20
+	- idl2xs_c.pl : add option -h (display help)
+	- idl2xs_c.pl : add option -v (display version)
+
+0.22
+	- c_cdr.pm : buf ALLOC sequence parameter out (side client)
+
 0.21  Fri Aug 01 18:30:00 2003
 	- new pointer for array (*p -> &p[0]) in c_cdr.pm
 	- fix for Sequence in pl_name.pm & pl_cdr.pm

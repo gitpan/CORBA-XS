@@ -7,9 +7,10 @@ use POSIX qw(ctime);
 
 use CORBA::XS::pl_cdr;
 
-package XS_PerlStubVisitor;
+package CORBA::XS::PerlStubVisitor;
 
-use base qw(PerlCdrVisitor);
+use base qw(CORBA::XS::PerlCdrVisitor);
+use File::Basename;
 
 # needs $node->{pl_name} $node->{pl_package} (PerlNameVisitor)
 
@@ -34,10 +35,7 @@ sub new {
 	} else {
 		$self->{path_use} = "";
 	}
-	my $filename = $self->{srcname};
-	$filename =~ s/^([^\/]+\/)+//;
-	$filename =~ s/\.idl$//i;
-	$filename = $filename . '.pm';
+	my $filename = basename($self->{srcname}, ".idl") . ".pm";
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
 	$self->{has_methodes} = 0;

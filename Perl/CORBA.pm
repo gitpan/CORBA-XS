@@ -283,7 +283,7 @@ sub boolean__demarshal {
 sub string__marshal {
 	my ($r_buffer,$value,$max) = @_;
 	my $len = length $value;
-	croak "too long string (max:\$max).\n"
+	croak "too long string (max:$max).\n"
 			if (defined $max and $len > $max);
 	unsigned_long__marshal($r_buffer,$len + 1);
 	$$r_buffer .= $value;

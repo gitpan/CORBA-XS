@@ -5,7 +5,7 @@ use UNIVERSAL;
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-package PerlNameVisitor;
+package CORBA::XS::PerlNameVisitor;
 
 # builds $node->{pl_name} and $node->{pl_package}
 
@@ -14,14 +14,14 @@ sub new {
 	my $class = ref($proto) || $proto;
 	my $self = {};
 	bless($self, $class);
-	my($parser) = @_;
+	my ($parser) = @_;
 	$self->{symbtab} = $parser->YYData->{symbtab};
 	return $self;
 }
 
 sub _get_defn {
 	my $self = shift;
-	my($defn) = @_;
+	my ($defn) = @_;
 	if (ref $defn) {
 		return $defn;
 	} else {
@@ -31,14 +31,14 @@ sub _get_defn {
 
 sub _get_name {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{idf};
 	return $name;
 }
 
 sub _get_pkg {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $pkg = $node->{full};
 	unless (   $node->isa('Modules')
 			or $node->isa('BaseInterface') ) {
@@ -60,11 +60,11 @@ sub _get_pkg {
 #	3.5		OMG IDL Specification
 #
 
-sub visitNameSpecification {
+sub visitSpecification {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 }
 
@@ -72,12 +72,12 @@ sub visitNameSpecification {
 #	3.7		Module Declaration
 #
 
-sub visitNameModules {
+sub visitModules {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 }
 
@@ -85,36 +85,44 @@ sub visitNameModules {
 #	3.8		Interface Declaration
 #
 
-sub visitNameBaseInterface {
+sub visitBaseInterface {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{pl_name});
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 	foreach (@{$node->{list_export}}) {
-		$self->{symbtab}->Lookup($_)->visitName($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
+}
+
+sub visitForwardBaseInterface {
+	my $self = shift;
+	my ($node) = @_;
+	return if (exists $node->{pl_name});
+	$node->{pl_package} = $self->_get_pkg($node);
+	$node->{pl_name} = $self->_get_name($node);
 }
 
 #
 #	3.9		Value Declaration
 #
 
-sub visitNameStateMember {
+sub visitStateMember {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 }
 
-sub visitNameInitializer {
+sub visitInitializer {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
+		$_->visit($self);			# parameter
 	}
 }
 
@@ -122,14 +130,14 @@ sub visitNameInitializer {
 #	3.10	Constant Declaration
 #
 
-sub visitNameConstant {
+sub visitConstant {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 }
 
-sub visitNameExpression {
+sub visitExpression {
 	# empty
 }
 
@@ -137,13 +145,13 @@ sub visitNameExpression {
 #	3.11	Type Declaration
 #
 
-sub visitNameTypeDeclarator {
+sub visitTypeDeclarator {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 	unless (exists $node->{modifier}) {		# native
-		$self->_get_defn($node->{type})->visitName($self);
+		$self->_get_defn($node->{type})->visit($self);
 	}
 }
 
@@ -151,9 +159,9 @@ sub visitNameTypeDeclarator {
 #	3.11.1	Basic Types
 #
 
-sub visitNameBasicType {
+sub visitBasicType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = $node->{value};
 	$name =~ s/ /_/g;
 	$node->{pl_package} = "CORBA";
@@ -166,81 +174,74 @@ sub visitNameBasicType {
 #	3.11.2.1	Structures
 #
 
-sub visitNameStructType {
+sub visitStructType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{pl_package});
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visitName($self);		# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);		# member
 	}
 }
 
-sub visitNameArray {
+sub visitMember {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
-}
-
-sub visitNameSingle {
-	my $self = shift;
-	my($node) = @_;
-	$node->{pl_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 }
 
 #	3.11.2.2	Discriminated Unions
 #
 
-sub visitNameUnionType {
+sub visitUnionType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	return if (exists $node->{pl_package});
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);			# case
+		$_->visit($self);			# case
 	}
 }
 
-sub visitNameCase {
+sub visitCase {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	foreach (@{$node->{list_label}}) {
-		$_->visitName($self);			# default or expression
+		$_->visit($self);			# default or expression
 	}
-	$node->{element}->visitName($self);
+	$node->{element}->visit($self);
 }
 
-sub visitNameDefault {
+sub visitDefault {
 	# empty
 }
 
-sub visitNameElement {
+sub visitElement {
 	my $self = shift;
-	my($node) = @_;
-	$self->_get_defn($node->{value})->visitName($self);		# single or array
+	my ($node) = @_;
+	$self->_get_defn($node->{value})->visit($self);		# member
 }
 
 #	3.11.2.4	Enumerations
 #
 
-sub visitNameEnumType {
+sub visitEnumType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 	foreach (@{$node->{list_expr}}) {
-		$_->visitName($self);			# enum
+		$_->visit($self);			# enum
 	}
 }
 
-sub visitNameEnum {
+sub visitEnum {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_name} = $self->_get_name($node);
 }
 
@@ -248,42 +249,42 @@ sub visitNameEnum {
 #	3.11.3	Template Types
 #
 
-sub visitNameSequenceType {
+sub visitSequenceType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $type = $self->_get_defn($node->{type});
-	$type->visitName($self);
+	$type->visit($self);
 	$node->{pl_package} = $self->_get_pkg($node);
 	my $name = ($type->{pl_package} eq 'main') ? $type->{pl_name} : $type->{pl_package} . '::' . $type->{pl_name};
 	$name =~ s/::/_/g;
 	$node->{pl_name} = "sequence_" . $name;
 }
 
-sub visitNameStringType {
+sub visitStringType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = "CORBA";
 	$node->{pl_name} = "string";
 }
 
-sub visitNameWideStringType {
+sub visitWideStringType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = "CORBA";
 	$node->{pl_name} = "wstring";
 }
 
-sub visitNameFixedPtType {
+sub visitFixedPtType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = "fixed";
 	$node->{pl_package} = "CORBA";
 	$node->{pl_name} = $name;
 }
 
-sub visitNameFixedPtConstType {
+sub visitFixedPtConstType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	my $name = "fixed";
 	$node->{pl_package} = "CORBA";
 	$node->{pl_name} = $name;
@@ -293,13 +294,13 @@ sub visitNameFixedPtConstType {
 #	3.12	Exception Declaration
 #
 
-sub visitNameException {
+sub visitException {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visitName($self);		# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);		# member
 	}
 }
 
@@ -307,27 +308,27 @@ sub visitNameException {
 #	3.13	Operation Declaration
 #
 
-sub visitNameOperation {
+sub visitOperation {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
+		$_->visit($self);			# parameter
 	}
 }
 
-sub visitNameParameter {
+sub visitParameter {
 	my $self = shift;
 	my($node) = @_;
 	$node->{pl_name} = $self->_get_name($node);
-	$self->_get_defn($node->{type})->visitName($self);
+	$self->_get_defn($node->{type})->visit($self);
 }
 
-sub visitNameVoidType {
+sub visitVoidType {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_name} = "";
 }
 
@@ -335,64 +336,60 @@ sub visitNameVoidType {
 #	3.14	Attribute Declaration
 #
 
-sub visitNameAttribute {
+sub visitAttribute {
 	my $self = shift;
-	my($node) = @_;
-	$node->{_get}->visitName($self);
-	$node->{_set}->visitName($self) if (exists $node->{_set});
+	my ($node) = @_;
+	$node->{_get}->visit($self);
+	$node->{_set}->visit($self) if (exists $node->{_set});
 }
 
 #
 #	3.15	Repository Identity Related Declarations
 #
 
-sub visitNameTypeId {
+sub visitTypeId {
 	# empty
 }
 
-sub visitNameTypePrefix {
+sub visitTypePrefix {
 	# empty
 }
-
-#
-#	3.16	Event Declaration
-#
 
 #
 #	3.17	Component Declaration
 #
 
-sub visitNameProvides {
+sub visitProvides {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 }
 
-sub visitNameUses {
+sub visitUses {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 }
 
-sub visitNamePublishes {
+sub visitPublishes {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 }
 
-sub visitNameEmits {
+sub visitEmits {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 }
 
-sub visitNameConsumes {
+sub visitConsumes {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 }
@@ -401,23 +398,23 @@ sub visitNameConsumes {
 #	3.18	Home Declaration
 #
 
-sub visitNameFactory {
+sub visitFactory {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
+		$_->visit($self);			# parameter
 	}
 }
 
-sub visitNameFinder {
+sub visitFinder {
 	my $self = shift;
-	my($node) = @_;
+	my ($node) = @_;
 	$node->{pl_package} = $self->_get_pkg($node);
 	$node->{pl_name} = $self->_get_name($node);
 	foreach (@{$node->{list_param}}) {
-		$_->visitName($self);			# parameter
+		$_->visit($self);			# parameter
 	}
 }
 
