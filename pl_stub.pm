@@ -26,6 +26,7 @@ sub new {
 	$filename = $filename . '.pm';
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
+	$self->{has_methodes} = 0;
 	return $self;
 }
 
@@ -46,6 +47,8 @@ sub visitSpecification {
 	print $FH "\n";
 	print $FH "use strict;\n";
 	print $FH "\n";
+	print $FH "# Preloaded methods go here.\n";
+	print $FH "\n";
 	print $FH "package main;\n";
 	print $FH "\n";
 	print $FH "use CORBA::XS::CORBA;\n";
@@ -53,6 +56,21 @@ sub visitSpecification {
 	print $FH "\n";
 	foreach (@{$node->{list_decl}}) {
 		$_->visit($self);
+	}
+	if ($self->{has_methodes}) {
+		print $FH "package ",$filename,";\n";
+		print $FH "\n";
+		print $FH "use strict;\n";
+		print $FH "use warnings;\n";
+		print $FH "\n";
+		print $FH "require DynaLoader;\n";
+		print $FH "\n";
+		print $FH "our \@ISA = qw(DynaLoader);\n";
+		print $FH "\n";
+		print $FH "our \$VERSION = '0.01';\n";
+		print $FH "\n";
+		print $FH "bootstrap ",$filename," \$VERSION;\n";
+		print $FH "\n";
 	}
 	print $FH "1;\n";
 	print $FH "\n";
@@ -74,30 +92,12 @@ sub visitInterface {
 #	return if (exists $node->{modifier});	# abstract or local
 	if ($self->{srcname} eq $node->{filename}) {
 		my $version;
-		if (exists $node->{version}) {
-			$version = $node->{version};
-		} else {
-			$version = "1.0";
-		}
 		my $FH = $self->{out};
 		print $FH "#\n";
 		print $FH "#   begin of interface ",$node->{pl_package},"\n";
 		print $FH "#\n";
-		print $FH "\n";
 		print $FH "package ",$node->{pl_package},";\n";
 		print $FH "\n";
-		print $FH "use strict;\n";
-		print $FH "use warnings;\n";
-		print $FH "\n";
-		print $FH "require DynaLoader;\n";
-		print $FH "\n";
-		print $FH "our \@ISA = qw(DynaLoader);\n";
-		print $FH "\n";
-		print $FH "our \$VERSION = '",$version,"';\n";
-		print $FH "\n";
-		print $FH "bootstrap ",$node->{pl_package}," \$VERSION;\n";
-		print $FH "\n";
-		print $FH "# Preloaded methods go here.\n";
 		print $FH "\n";
 		print $FH "use CORBA::XS::CORBA;\n";
 		print $FH "use Carp;\n";
@@ -164,6 +164,7 @@ sub visitInterface {
 sub visitOperation {
 	my $self = shift;
 	my($node) = @_;
+	$self->{has_methodes} = 1;
 	my $FH = $self->{out};
 	print $FH "# ",$node->{pl_package},"::",$node->{pl_name},"\n";
 	print $FH "sub ",$node->{pl_name}," {\n";

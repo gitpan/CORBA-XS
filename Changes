@@ -1,5 +1,10 @@
 Revision history for Perl extension CORBA::XS.
 
+0.11  Tue May 21 09:30:00 2002
+	- fix bug in test.pl
+	- complete implementation
+	- add 2 examples
+
 0.10  Tue May 14 08:30:00 2002
 	- first release
 

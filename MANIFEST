@@ -22,4 +22,14 @@ example1/testunit/test_sub.pm
 example1/testunit/test_mul.pm
 example1/testunit/test_div.pm
 example1/testunit/suite_calc.pm
+example2/Cplx.idl
+example2/CalcCplx.idl
+example2/skel_CalcCplx.c
+example2/README
+example2/testunit/test_cplx.pm
+example3/Cplx.idl
+example3/CalcCplx.idl
+example3/skel_CalcCplx.c
+example3/README
+example3/testunit/test_cplx.pm
 

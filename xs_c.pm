@@ -5,7 +5,7 @@ use POSIX qw(ctime);
 package XS_C_Visitor;
 
 use vars qw($VERSION);
-$VERSION = '0.10';
+$VERSION = '0.11';
 
 sub new {
 	my $proto = shift;
@@ -17,6 +17,7 @@ sub new {
 	$self->{srcname_size} = $parser->YYData->{srcname_size};
 	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
 	$self->{inc} = {};
+	$self->{has_methodes} = 0;
 	return $self;
 }
 
@@ -84,6 +85,11 @@ sub visitSpecification {
 	print $FH "\n";
 	print $FH "/* end of file : ",$self->{filename}," */\n";
 	close $FH;
+	unless ($self->{has_methodes}) {
+		unlink $self->{filename}
+			 or die "can't delete $self->{filename} ($!).\n";
+		return;
+	}
 
 	my $filename = "Makefile.PL";
 	open OUT, "> $filename"
@@ -113,6 +119,7 @@ sub visitSpecification {
 			or die "can't open $filename ($!).\n";
 	print OUT $src_name,".pm\n";
 	print OUT $src_name,".c\n";
+	print OUT $src_name,".h\n";
 	print OUT "cdr_",$src_name,".c\n";
 	print OUT "skel_",$src_name,".c0\n";
 	print OUT "corba.c\n";
@@ -169,6 +176,8 @@ sub visitSpecification {
 	}
 	close OUT;
 	close IN;
+
+	do 'Makefile.PL';
 }
 
 #
@@ -206,6 +215,86 @@ sub visitInterface {
 	}
 }
 
+sub visitForwardInterface {
+	# empty
+}
+
+#
+#	3.8		Value Declaration
+#
+
+sub visitRegularValue {
+	# C mapping is aligned with CORBA 2.1
+}
+
+sub visitBoxedValue {
+	# C mapping is aligned with CORBA 2.1
+}
+
+sub visitAbstractValue {
+	# C mapping is aligned with CORBA 2.1
+}
+
+sub visitForwardRegularValue {
+	# C mapping is aligned with CORBA 2.1
+}
+
+sub visitForwardAbstractValue {
+	# C mapping is aligned with CORBA 2.1
+}
+
+#
+#	3.9		Constant Declaration
+#
+
+sub visitConstant {
+	# empty
+}
+
+#
+#	3.10	Type Declaration
+#
+
+sub visitTypeDeclarators {
+	# empty
+}
+
+#
+#	3.10.2	Constructed Types
+#
+
+sub visitStructType {
+	# empty
+}
+
+sub visitUnionType {
+	# empty
+}
+
+sub visitEnumType {
+	# empty
+}
+
+#
+#	3.10.3	Constructed Recursive Types and Forward Declarations
+#
+
+sub visitForwardStructType {
+	# empty
+}
+
+sub visitForwardUnionType {
+	# empty
+}
+
+#
+#	3.11	Exception Declaration
+#
+
+sub visitException {
+	# empty
+}
+
 #
 #	3.12	Operation Declaration
 #
@@ -214,10 +303,13 @@ sub visitOperation {
 	my $self = shift;
 	my($node) = @_;
 	my $FH = $self->{out};
+	$self->{has_methodes} = 1;
+	my $c_package = $node->{pl_package};
+	$c_package =~ s/::/_/g;
 	if (exists $node->{modifier}) {		# oneway
 		print $FH "extern void cdr_",$node->{c_name},"(void * ref, char *is);\n";
 		print $FH "\n";
-		print $FH "XS(XS_",$node->{pl_package},"_cdr_",$node->{pl_name},")\n";
+		print $FH "XS(XS_",$c_package,"_cdr_",$node->{pl_name},")\n";
 		print $FH "{\n";
 		print $FH "    dXSARGS;\n";
 		print $FH "    if (items != 2)\n";
@@ -235,7 +327,7 @@ sub visitOperation {
 	} else {
 		print $FH "extern int cdr_",$node->{c_name},"(void * ref, char *is, char **os);\n";
 		print $FH "\n";
-		print $FH "XS(XS_",$node->{pl_package},"_cdr_",$node->{pl_name},")\n";
+		print $FH "XS(XS_",$c_package,"_cdr_",$node->{pl_name},")\n";
 		print $FH "{\n";
 		print $FH "    dXSARGS;\n";
 		print $FH "    if (items != 3)\n";
@@ -257,7 +349,7 @@ sub visitOperation {
 		print $FH "\n";
 	}
 	$self->{newXS} .= "        newXS(\"" . $node->{pl_package} . "::cdr_" . $node->{pl_name} . "\", XS_";
-		$self->{newXS} .= $node->{pl_package} . "_cdr_" . $node->{pl_name} . ", file);\n";
+		$self->{newXS} .= $c_package . "_cdr_" . $node->{pl_name} . ", file);\n";
 }
 
 #

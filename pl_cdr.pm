@@ -46,7 +46,6 @@ sub visitModule {
 		print $FH "\n";
 		print $FH "package ",$node->{pl_package},";\n";
 		print $FH "\n";
-		print $FH "use CORBA::Perl::CORBA;\n";
 		print $FH "use Carp;\n";
 		print $FH "\n";
 		foreach (@{$node->{list_decl}}) {

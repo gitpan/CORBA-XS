@@ -422,6 +422,7 @@ sub visitNameElement {
 sub visitNameEnumType {
 	my $self = shift;
 	my($node) = @_;
+	return if (exists $node->{pl_package});
 	$node->{pl_package} = $self->{pkg_curr};
 	$node->{pl_name} = $node->{idf};
 	foreach (@{$node->{list_expr}}) {
