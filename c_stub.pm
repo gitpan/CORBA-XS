@@ -248,8 +248,8 @@ sub visitOperation {
 					print $FH "\t\t\tPUT_",$_->{type}->{c_name},"(_p,",$_->{c_put_name},");\n";
 				}
 			}
-			print $FH "\t\t}\n";
 		}
+		print $FH "\t\t}\n";
 		print $FH "\t}\n";
 		if (exists $node->{list_raise}) {
 			print $FH "\telse if (CORBA_USER_EXCEPTION == _Ev._major)\n";

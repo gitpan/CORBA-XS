@@ -15,11 +15,20 @@ sub new {
 	my $self = {};
 	bless($self, $class);
 	my($parser) = @_;
+	$self->{parser} = $parser;
+	$self->{parser}->YYData->{modules} = [];
 	$self->{srcname} = $parser->YYData->{srcname};
 	$self->{srcname_size} = $parser->YYData->{srcname_size};
 	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
 	$self->{client} = 1;
 	$self->{use} = {};
+	if (exists $parser->YYData->{opt_J}) {
+		$self->{path_use} = $parser->YYData->{opt_J};
+		$self->{path_use} =~ s/\//::/g;
+		$self->{path_use} .= "::";
+	} else {
+		$self->{path_use} = "";
+	}
 	my $filename = $self->{srcname};
 	$filename =~ s/^([^\/]+\/)+//;
 	$filename =~ s/\.idl$//i;

@@ -22,8 +22,9 @@ sub _insert_use {
 	$module =~ s/\.idl$//i;
 	unless (exists $self->{use}->{$module}) {
 		$self->{use}->{$module} = 1;
-		print $FH "use ",$module,";\n";
+		print $FH "use ",$self->{path_use},$module,";\n";
 		print $FH "\n";
+		push @{$self->{parser}->YYData->{modules}}, $module;
 	}
 }
 
@@ -103,7 +104,7 @@ sub visitConstant {
 	if ($self->{srcname} eq $node->{filename}) {
 		my $FH = $self->{out};
 		print $FH "# ",$node->{pl_package},"::",$node->{pl_name},"\n";
-		print $FH "sub ",$node->{pl_name}," {\n";
+		print $FH "sub ",$node->{pl_name}," () {\n";
 		print $FH "\treturn ",$node->{value}->{pl_name},";\n";
 		print $FH "}\n";
 		print $FH "\n";
@@ -159,6 +160,7 @@ sub visitTypeDeclarator {
 				print $FH "\t}\n";
 			}
 			print $FH "}\n";
+			print $FH "\n";
 
 			print $FH "sub ",$node->{idf},"__demarshal {\n";
 			print $FH "\tmy (\$r_buffer,\$r_offset,\$endian) = \@_;\n";
@@ -170,17 +172,18 @@ sub visitTypeDeclarator {
 					print $FH "\$idx",$n," < ",$_->{pl_name},"; ";
 					print $FH "\$idx",$n,"++) {\n";
 			}
-			print $FH "\t\tunshift \@tab",$n,", ";
+			print $FH "\t\tpush \@tab",$n,", ";
 				print $FH $node->{type}->{pl_package},'::',$node->{type}->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 			print $FH "\t}\n";
 			while ($n > 1) {
-				print $FH "\t\tunshift \@tab",($n - 1),", ";
+				print $FH "\t\tpush \@tab",($n - 1),", ";
 					print $FH "\\\@tab",$n,";\n";
 				print $FH "\t}\n";
 				$n --;
 			}
 			print $FH "\treturn \\\@tab1;\n";
 			print $FH "}\n";
+			print $FH "\n";
 		} else {
 			print $FH "sub ",$node->{idf},"__marshal {\n";
 			print $FH "\tmy (\$r_buffer,\$value) = \@_;\n";
@@ -188,10 +191,12 @@ sub visitTypeDeclarator {
 			print $FH "\t\t\tunless (defined \$value);\n";
 			print $FH "\t",$node->{type}->{pl_package},"::",$node->{type}->{pl_name},"__marshal(\$r_buffer,\$value);\n";
 			print $FH "}\n";
+			print $FH "\n";
 			print $FH "sub ",$node->{idf},"__demarshal {\n";
 			print $FH "\tmy (\$r_buffer,\$r_offset,\$endian) = \@_;\n";
 			print $FH "\treturn ",$node->{type}->{pl_package},"::",$node->{type}->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 			print $FH "}\n";
+			print $FH "\n";
 		}
 		print $FH "\n";
 	}
@@ -282,11 +287,11 @@ sub visitArray {
 			$self->{demarshal} .= "\$idx" . $n . " < " . $_->{pl_name} . "; ";
 			$self->{demarshal} .= "\$idx" . $n . "++) {\n";
 	}
-	$self->{demarshal} .= "\t\t\tunshift \@" . $node->{idf} . "_tab" . $n . ", ";
+	$self->{demarshal} .= "\t\t\tpush \@" . $node->{idf} . "_tab" . $n . ", ";
 		$self->{demarshal} .= $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name} . "__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 	$self->{demarshal} .= "\t\t}\n";
 	while ($n > 1) {
-		$self->{demarshal} .= "\t\t\tunshift \@" . $node->{idf} . "_tab" . ($n - 1) . ", ";
+		$self->{demarshal} .= "\t\t\tpush \@" . $node->{idf} . "_tab" . ($n - 1) . ", ";
 			$self->{demarshal} .= "\\\@" . $node->{idf} . "_tab" . $n . ";\n";
 		$self->{demarshal} .= "\t\t}\n";
 		$n --;
@@ -446,7 +451,7 @@ sub visitEnum {
 	my $self = shift;
 	my($node) = @_;
 	my $FH = $self->{out};
-	print $FH "sub ",$node->{pl_name}," {\n";
+	print $FH "sub ",$node->{pl_name}," () {\n";
 	print $FH "\treturn '",$node->{pl_name},"';\n";
 	print $FH "}\n";
 }

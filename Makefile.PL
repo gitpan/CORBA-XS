@@ -6,8 +6,8 @@ WriteMakefile(
     'VERSION_FROM'  => 'xs_c.pm',
     'ABSTRACT'      => 'IDL compiler to extension interface between Perl and C code',
     'PREREQ_PM'     => {
-                        'CORBA::IDL::node'  => 0,
-                        'CORBA::C::include' => 0
+                        'CORBA::IDL::node'  => 1.04,
+                        'CORBA::C::include' => 1.04
     },
     'PM'            => {
                         'xs_c.pm'       => '$(INST_LIBDIR)/XS/xs_c.pm',
@@ -22,8 +22,8 @@ WriteMakefile(
                         'C/corba.h'     => '$(INSTALLARCHLIB)/CORE/corba.h',
                         'C/cdr.h'       => '$(INSTALLARCHLIB)/CORE/cdr.h'
     },
-    'EXE_FILES'     => ['idl2xs_c'],
-    'AUTHOR'        => "Francois PERRAD (perrad\@besancon.sema.slb.com)",
+    'EXE_FILES'     => ['idl2xs_c.pl'],
+    'AUTHOR'        => "Francois PERRAD (francois.perrad\@gadz.org)",
     'dist'          => {
                         'COMPRESS'      => 'gzip',
                         'SUFFIX'        => '.gz',

@@ -5,7 +5,7 @@ use POSIX qw(ctime);
 package XS_C_Visitor;
 
 use vars qw($VERSION);
-$VERSION = '0.11';
+$VERSION = '0.12';
 
 sub new {
 	my $proto = shift;
@@ -16,6 +16,7 @@ sub new {
 	$self->{srcname} = $parser->YYData->{srcname};
 	$self->{srcname_size} = $parser->YYData->{srcname_size};
 	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
+	$self->{modules} = [ @{$parser->YYData->{modules}} ];
 	$self->{inc} = {};
 	$self->{has_methodes} = 0;
 	return $self;
@@ -109,7 +110,10 @@ sub visitSpecification {
 	print OUT "    'INC'           => '', # e.g., '-I/usr/include/other'\n";
 	print OUT "    'MYEXTLIB'      => 'cdr_",$src_name,"\$(OBJ_EXT) skel_",$src_name,"\$(OBJ_EXT) corba\$(OBJ_EXT)',\n";
 	print OUT "    'PM'            => {\n";
-	print OUT "                        '",$src_name,".pm'          => '\$(INST_LIBDIR)/",$src_name,".pm',\n";
+	foreach (@{$self->{modules}}) {
+		print OUT "                        '",$_,".pm' => '\$(INST_LIBDIR)/",$_,".pm',\n";
+	}
+	print OUT "                        '",$src_name,".pm' => '\$(INST_LIBDIR)/",$src_name,".pm'\n";
 	print OUT "    },\n";
 	print OUT ");\n";
 	close OUT;
@@ -117,6 +121,10 @@ sub visitSpecification {
 	$filename = "MANIFEST";
 	open OUT, "> $filename"
 			or die "can't open $filename ($!).\n";
+	foreach (@{$self->{modules}}) {
+		print OUT $_,".pm\n";
+		print OUT $_,".h\n";
+	}
 	print OUT $src_name,".pm\n";
 	print OUT $src_name,".c\n";
 	print OUT $src_name,".h\n";
