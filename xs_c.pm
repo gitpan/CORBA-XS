@@ -5,10 +5,10 @@ use POSIX qw(ctime);
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-package CORBA::XS;
+package CORBA::XS::xs_c;
 
 use vars qw($VERSION);
-$VERSION = '0.30';
+$VERSION = '0.31';
 
 package CORBA::XS::C_Visitor;
 
