@@ -1,9 +1,12 @@
 use strict;
 
+#
+#			Interface Definition Language (OMG IDL CORBA v3.0)
+#
+
 package PerlCdrVisitor;
 
 # needs $node->{pl_name} $node->{pl_package} (PerlNameVisitor)
-
 
 sub open_stream {
 	my $self = shift;
@@ -22,9 +25,19 @@ sub _insert_use {
 	$module =~ s/\.idl$//i;
 	unless (exists $self->{use}->{$module}) {
 		$self->{use}->{$module} = 1;
+		push @{$self->{parser}->YYData->{modules}}, $module;
 		print $FH "use ",$self->{path_use},$module,";\n";
 		print $FH "\n";
-		push @{$self->{parser}->YYData->{modules}}, $module;
+	}
+}
+
+sub _get_defn {
+	my $self = shift;
+	my($defn) = @_;
+	if (ref $defn) {
+		return $defn;
+	} else {
+		return $self->{symbtab}->Lookup($defn);
 	}
 }
 
@@ -33,28 +46,40 @@ sub _insert_use {
 #
 
 #
-#	3.6		Module Declaration
+#	3.7		Module Declaration
 #
+
+sub visitModules {
+	my $self = shift;
+	my($node) = @_;
+	unless (exists $node->{$self->{num_key}}) {
+		$node->{$self->{num_key}} = 0;
+	}
+	my $module = ${$node->{list_decl}}[$node->{$self->{num_key}}];
+	$module->visit($self);
+	$node->{$self->{num_key}} ++;
+}
 
 sub visitModule {
 	my $self = shift;
 	my($node) = @_;
 	my $FH = $self->{out};
 	if ($self->{srcname} eq $node->{filename}) {
+		my $defn = $self->{symbtab}->Lookup($node->{full});
 		print $FH "#\n";
-		print $FH "#   begin of module ",$node->{pl_package},"\n";
+		print $FH "#   begin of module ",$defn->{pl_package},"\n";
 		print $FH "#\n";
 		print $FH "\n";
-		print $FH "package ",$node->{pl_package},";\n";
+		print $FH "package ",$defn->{pl_package},";\n";
 		print $FH "\n";
 		print $FH "use Carp;\n";
 		print $FH "\n";
 		foreach (@{$node->{list_decl}}) {
-			$_->visit($self);
+			$self->_get_defn($_)->visit($self);
 		}
 		print $FH "\n";
 		print $FH "#\n";
-		print $FH "#   end of module ",$node->{pl_package},"\n";
+		print $FH "#   end of module ",$defn->{pl_package},"\n";
 		print $FH "#\n";
 		print $FH "\n";
 	} else {
@@ -63,15 +88,27 @@ sub visitModule {
 }
 
 #
-#	3.7		Interface Declaration		(specialized)
+#	3.8		Interface Declaration		(specialized)
 #
 
-sub visitForwardInterface {
+sub visitLocalInterface {
+	# empty
+}
+
+sub visitForwardRegularInterface {
+	# empty
+}
+
+sub visitForwardAbstractInterface {
+	# empty
+}
+
+sub visitForwardLocalInterface {
 	# empty
 }
 
 #
-#	3.8		Value Declaration
+#	3.9		Value Declaration
 #
 
 sub visitRegularValue {
@@ -95,7 +132,7 @@ sub visitForwardAbstractValue {
 }
 
 #
-#	3.9		Constant Declaration
+#	3.10	Constant Declaration
 #
 
 sub visitConstant {
@@ -105,21 +142,21 @@ sub visitConstant {
 		my $FH = $self->{out};
 		print $FH "# ",$node->{pl_package},"::",$node->{pl_name},"\n";
 		print $FH "sub ",$node->{pl_name}," () {\n";
-		print $FH "\treturn ",$node->{value}->{pl_name},";\n";
+		print $FH "\treturn ",$node->{value}->{pl_literal},";\n";
 		print $FH "}\n";
 		print $FH "\n";
 	}
 }
 
 #
-#	3.10	Type Declaration
+#	3.11	Type Declaration
 #
 
 sub visitTypeDeclarators {
 	my $self = shift;
 	my($node) = @_;
-	foreach (@{$node->{list_value}}) {
-		$_->visit($self);
+	foreach (@{$node->{list_decl}}) {
+		$self->_get_defn($_)->visit($self);
 	}
 }
 
@@ -127,16 +164,17 @@ sub visitTypeDeclarator {
 	my $self = shift;
 	my($node) = @_;
 	return if (exists $node->{modifier});	# native IDL2.2
-	if (	   $node->{type}->isa('StructType')
-			or $node->{type}->isa('UnionType')
-			or $node->{type}->isa('EnumType')
-			or $node->{type}->isa('SequenceType')
-			or $node->{type}->isa('FixedPtType') ) {
-		$node->{type}->visit($self);
+	my $type = $self->_get_defn($node->{type});
+	if (	   $type->isa('StructType')
+			or $type->isa('UnionType')
+			or $type->isa('EnumType')
+			or $type->isa('SequenceType')
+			or $type->isa('FixedPtType') ) {
+		$type->visit($self);
 	}
 	if ($self->{srcname} eq $node->{filename}) {
 		my $FH = $self->{out};
-		print $FH "# ",$node->{pl_package},"::",$node->{pl_name},"\n";
+		print $FH "# ",$node->{pl_package},"::",$node->{pl_name}," (typedef)\n";
 		if (exists $node->{array_size}) {
 			warn __PACKAGE__,"::visitTypeDecalarator $node->{idf} : empty array_size.\n"
 					unless (@{$node->{array_size}});
@@ -151,10 +189,10 @@ sub visitTypeDeclarator {
 			foreach (@{$node->{array_size}}) {
 				$n ++;
 				print $FH "\tcroak \"bad size of array '",$node->{idf},"'.\\n\"\n";
-				print $FH "\t\t\tunless (scalar(\@{\$_}) == ",$_->{pl_name},");\n";
+				print $FH "\t\t\tunless (scalar(\@{\$_}) == ",$_->{pl_literal},");\n";
 				print $FH "\tforeach (\@{\$_}) {\n";
 			}
-			print $FH "\t\t",$node->{type}->{pl_package},'::',$node->{type}->{pl_name};
+			print $FH "\t\t",$type->{pl_package},'::',$type->{pl_name};
 				print $FH "__marshal(\$r_buffer,\$_);\n";
 			while ($n--) {
 				print $FH "\t}\n";
@@ -169,11 +207,11 @@ sub visitTypeDeclarator {
 				$n ++;
 				print $FH "\tmy \@tab",$n," = ();\n";
 				print $FH "\tfor (my \$idx",$n," = 0; ";
-					print $FH "\$idx",$n," < ",$_->{pl_name},"; ";
+					print $FH "\$idx",$n," < ",$_->{pl_literal},"; ";
 					print $FH "\$idx",$n,"++) {\n";
 			}
 			print $FH "\t\tpush \@tab",$n,", ";
-				print $FH $node->{type}->{pl_package},'::',$node->{type}->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
+				print $FH $type->{pl_package},'::',$type->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 			print $FH "\t}\n";
 			while ($n > 1) {
 				print $FH "\t\tpush \@tab",($n - 1),", ";
@@ -189,12 +227,12 @@ sub visitTypeDeclarator {
 			print $FH "\tmy (\$r_buffer,\$value) = \@_;\n";
 			print $FH "\tcroak \"undefined value for '",$node->{idf},"'.\\n\"\n";
 			print $FH "\t\t\tunless (defined \$value);\n";
-			print $FH "\t",$node->{type}->{pl_package},"::",$node->{type}->{pl_name},"__marshal(\$r_buffer,\$value);\n";
+			print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal(\$r_buffer,\$value);\n";
 			print $FH "}\n";
 			print $FH "\n";
 			print $FH "sub ",$node->{idf},"__demarshal {\n";
 			print $FH "\tmy (\$r_buffer,\$r_offset,\$endian) = \@_;\n";
-			print $FH "\treturn ",$node->{type}->{pl_package},"::",$node->{type}->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
+			print $FH "\treturn ",$type->{pl_package},"::",$type->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 			print $FH "}\n";
 			print $FH "\n";
 		}
@@ -203,9 +241,9 @@ sub visitTypeDeclarator {
 }
 
 #
-#	3.10.2	Constructed Types
+#	3.11.2	Constructed Types
 #
-#	3.10.2.1	Structures
+#	3.11.2.1	Structures
 #
 
 sub visitStructType {
@@ -215,23 +253,25 @@ sub visitStructType {
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
 	foreach (@{$node->{list_expr}}) {
-		if (	   $_->{type}->isa('StructType')
-				or $_->{type}->isa('UnionType')
-				or $_->{type}->isa('SequenceType')
-				or $_->{type}->isa('FixedPtType') ) {
-			$_->{type}->visit($self);
+		my $type = $self->_get_defn($_->{type});
+		if (	   $type->isa('StructType')
+				or $type->isa('UnionType')
+				or $type->isa('SequenceType')
+				or $type->isa('FixedPtType') ) {
+			$type->visit($self);
 		}
 	}
 	if ($self->{srcname} eq $node->{filename}) {
 		$self->{marshal} = '';
 		$self->{demarshal} = '';
 		foreach (@{$node->{list_value}}) {
-			$self->{val} = "\$value->{" . $_->{idf} . "}";
-			$_->visit($self);				# single or array
+			my $member = $self->_get_defn($_);			# single or array
+			$self->{val} = "\$value->{" . $member->{idf} . "}";
+			$member->visit($self);
 		}
 		delete $self->{val};
 		my $FH = $self->{out};
-		print $FH "# ",$name,"\n";
+		print $FH "# ",$name," (struct)\n";
 		print $FH "sub ",$node->{pl_name},"__marshal {\n";
 		print $FH "\t\tmy (\$r_buffer,\$value) = \@_;\n";
 		print $FH "\t\tcroak \"undefined value for '",$node->{idf},"'.\\n\"\n";
@@ -239,8 +279,9 @@ sub visitStructType {
 		print $FH "\t\tcroak \"invalid struct for '",$node->{idf},"' (not a HASH reference).\\n\"\n";
 		print $FH "\t\t\t\tunless (ref \$value eq 'HASH');\n";
 		foreach (@{$node->{list_value}}) {
-			print $FH "\t\tcroak \"no member '",$_->{idf},"' in structure '",$node->{idf},"'.\\n\"\n";
-			print $FH "\t\t\t\tunless (exists \$value->{",$_->{idf},"});\n";
+			my $member = $self->_get_defn($_);			# single or array
+			print $FH "\t\tcroak \"no member '",$member->{idf},"' in structure '",$node->{idf},"'.\\n\"\n";
+			print $FH "\t\t\t\tunless (exists \$value->{",$member->{idf},"});\n";
 		}
 		print $FH $self->{marshal};
 		print $FH "}\n";
@@ -260,19 +301,19 @@ sub visitArray {
 	my $self = shift;
 	my($node) = @_;
 	my $n = 0;
-
+	my $type = $self->_get_defn($node->{type});
 	$self->{marshal} .= "\t\t\$_ = " . $self->{val} . ";\n";
 	foreach (@{$node->{array_size}}) {
 		$n ++;
 		$self->{marshal} .= "\t\tcroak \"bad size of array '" . $node->{idf} . "'.\\n\"\n";
-		$self->{marshal} .= "\t\t\t\tunless (scalar(\@{\$_}) == " . $_->{pl_name} . ");\n";
+		$self->{marshal} .= "\t\t\t\tunless (scalar(\@{\$_}) == " . $_->{pl_literal} . ");\n";
 		$self->{marshal} .= "\t\tforeach (\@{\$_}) {\n";
 	}
-	if (exists $node->{type}->{max}) {
-		$self->{marshal} .= "\t\t\t" . $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name};
-			$self->{marshal} .= "__marshal(\$r_buffer,\$_," . $node->{type}->{max}->{value} . ");\n";
+	if (exists $type->{max}) {
+		$self->{marshal} .= "\t\t\t" . $type->{pl_package} . '::' . $type->{pl_name};
+			$self->{marshal} .= "__marshal(\$r_buffer,\$_," . $type->{max}->{value} . ");\n";
 	} else {
-		$self->{marshal} .= "\t\t\t" . $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name};
+		$self->{marshal} .= "\t\t\t" . $type->{pl_package} . '::' . $type->{pl_name};
 			$self->{marshal} .= "__marshal(\$r_buffer,\$_);\n";
 	}
 	while ($n--) {
@@ -284,11 +325,11 @@ sub visitArray {
 		$n ++;
 		$self->{demarshal} .= "\t\tmy \@" . $node->{idf} . "_tab" . $n . " = ();\n";
 		$self->{demarshal} .= "\t\tfor (my \$idx" . $n . " = 0; ";
-			$self->{demarshal} .= "\$idx" . $n . " < " . $_->{pl_name} . "; ";
+			$self->{demarshal} .= "\$idx" . $n . " < " . $_->{pl_literal} . "; ";
 			$self->{demarshal} .= "\$idx" . $n . "++) {\n";
 	}
 	$self->{demarshal} .= "\t\t\tpush \@" . $node->{idf} . "_tab" . $n . ", ";
-		$self->{demarshal} .= $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name} . "__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
+		$self->{demarshal} .= $type->{pl_package} . '::' . $type->{pl_name} . "__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 	$self->{demarshal} .= "\t\t}\n";
 	while ($n > 1) {
 		$self->{demarshal} .= "\t\t\tpush \@" . $node->{idf} . "_tab" . ($n - 1) . ", ";
@@ -302,18 +343,19 @@ sub visitArray {
 sub visitSingle {
 	my $self = shift;
 	my($node) = @_;
-	if (exists $node->{type}->{max}) {
-		$self->{marshal}  .= "\t\t" . $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name} . "__marshal";
-			$self->{marshal}  .= "(\$r_buffer," . $self->{val} . "," . $node->{type}->{max}->{value} . ");\n";
+	my $type = $self->_get_defn($node->{type});
+	if (exists $type->{max}) {
+		$self->{marshal}  .= "\t\t" . $type->{pl_package} . '::' . $type->{pl_name} . "__marshal";
+			$self->{marshal}  .= "(\$r_buffer," . $self->{val} . "," . $type->{max}->{value} . ");\n";
 	} else {
-		$self->{marshal}  .= "\t\t" . $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name} . "__marshal";
+		$self->{marshal}  .= "\t\t" . $type->{pl_package} . '::' . $type->{pl_name} . "__marshal";
 			$self->{marshal}  .= "(\$r_buffer," . $self->{val} . ");\n";
 	}
 	$self->{demarshal}  .= "\t\t" . $self->{val} . " = ";
-		$self->{demarshal}  .= $node->{type}->{pl_package} . '::' . $node->{type}->{pl_name} . "__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
+		$self->{demarshal}  .= $type->{pl_package} . '::' . $type->{pl_name} . "__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 }
 
-#	3.10.2.2	Discriminated Unions
+#	3.11.2.2	Discriminated Unions
 #
 
 sub visitUnionType {
@@ -323,20 +365,21 @@ sub visitUnionType {
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
 	foreach (@{$node->{list_expr}}) {
-		if (	   $_->{element}->{type}->isa('StructType')
-				or $_->{element}->{type}->isa('UnionType')
-				or $_->{element}->{type}->isa('EnumType')
-				or $_->{element}->{type}->isa('SequenceType')
-				or $_->{element}->{type}->isa('FixedPtType') ) {
-			$_->{element}->{type}->visit($self);
+		my $type = $self->_get_defn($_->{element}->{type});
+		if (	   $type->isa('StructType')
+				or $type->isa('UnionType')
+				or $type->isa('EnumType')
+				or $type->isa('SequenceType')
+				or $type->isa('FixedPtType') ) {
+			$type->visit($self);
 		}
 	}
 	if ($self->{srcname} eq $node->{filename}) {
 		$self->{marshal} = '';
 		$self->{demarshal} = '';
-		my $type = $node->{type};
+		my $type = $self->_get_defn($node->{type});
 		while ($type->isa('TypeDeclarator')) {
-			$type = $type->{type};
+			$type = $self->_get_defn($type->{type});
 		}
 		my $equal;
 		if ($type->isa('IntegerType')) {
@@ -344,16 +387,17 @@ sub visitUnionType {
 		} else {
 			$equal = "eq";
 		}
+		$type = $self->_get_defn($node->{type});
 		my $default = undef;
 		foreach my $case (@{$node->{list_expr}}) {	# case
 			foreach (@{$case->{list_label}}) {	# default or expression
 				if ($_->isa('Default')) {
 					$default = $case;
 				} else {
-					$self->{marshal} .= "\t} elsif (\$d " . $equal . " " . $_->{pl_name} . ") {\n";
-					$self->{demarshal} .= "\t} elsif (\$d " . $equal . " " . $_->{pl_name} . ") {\n";
+					$self->{marshal} .= "\t} elsif (\$d " . $equal . " " . $_->{pl_literal} . ") {\n";
+					$self->{demarshal} .= "\t} elsif (\$d " . $equal . " " . $_->{pl_literal} . ") {\n";
 					$self->{val} = "\$value";
-					$case->{element}->{value}->visit($self);	# array or single
+					$self->_get_defn($case->{element}->{value})->visit($self);	# array or single
 				}
 			}
 		}
@@ -361,7 +405,7 @@ sub visitUnionType {
 			$self->{marshal} .= "\t} else {\t# default\n";
 			$self->{demarshal} .= "\t} else {\t# default\n";
 			$self->{val} = "\$value";
-			$default->{element}->{value}->visit($self);	# array or single
+			$self->_get_defn($default->{element}->{value})->visit($self);	# array or single
 		} else {
 			$self->{marshal} .= "\t} else {\n";
 			$self->{marshal} .= "\t\tcroak \"invalid discriminator (\$d) for '" . $node->{idf} . "'.\\n\";\n";
@@ -370,7 +414,7 @@ sub visitUnionType {
 		}
 		delete $self->{val};
 		my $FH = $self->{out};
-		print $FH "# ",$name,"\n";
+		print $FH "# ",$name," (union)\n";
 		print $FH "sub ",$node->{pl_name},"__marshal {\n";
 		print $FH "\tmy (\$r_buffer,\$union) = \@_;\n";
 		print $FH "\tcroak \"undefined value for '",$node->{idf},"'.\\n\"\n";
@@ -381,7 +425,7 @@ sub visitUnionType {
 		print $FH "\t\t\tunless (scalar(\@{\$union}) == 2);\n";
 		print $FH "\tmy \$d = \${\$union}[0];\n";
 		print $FH "\tmy \$value = \${\$union}[1];\n";
-		print $FH "\t",$node->{type}->{pl_package},"::",$node->{type}->{pl_name},"__marshal(\$r_buffer,\$d);\n";
+		print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal(\$r_buffer,\$d);\n";
 		print $FH "\tif (0) {\n";
 		print $FH "\t\t# empty\n";
 		print $FH $self->{marshal};
@@ -390,7 +434,7 @@ sub visitUnionType {
 		print $FH "sub ",$node->{pl_name},"__demarshal {\n";
 		print $FH "\tmy (\$r_buffer,\$r_offset,\$endian) = \@_;\n";
 		print $FH "\tmy \$value = undef;\n";
-		print $FH "\tmy \$d = ",$node->{type}->{pl_package},"::",$node->{type}->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
+		print $FH "\tmy \$d = ",$type->{pl_package},"::",$type->{pl_name},"__demarshal(\$r_buffer,\$r_offset,\$endian);\n";
 		print $FH "\tif (0) {\n";
 		print $FH "\t\t# empty\n";
 		print $FH $self->{demarshal};
@@ -403,7 +447,18 @@ sub visitUnionType {
 	}
 }
 
-#	3.10.2.3	Enumerations
+#	3.11.2.3	Constructed Recursive Types and Forward Declarations
+#
+
+sub visitForwardStructType {
+	# empty
+}
+
+sub visitForwardUnionType {
+	# empty
+}
+
+#	3.11.2.4	Enumerations
 #
 
 sub visitEnumType {
@@ -414,7 +469,7 @@ sub visitEnumType {
 	$self->{done_hash}->{$name} = 1;
 	if ($self->{srcname} eq $node->{filename}) {
 		my $FH = $self->{out};
-		print $FH "# ",$name,"\n";
+		print $FH "# ",$name," (enum)\n";
 		print $FH "sub ",$node->{pl_name},"__marshal {\n";
 		print $FH "\tmy (\$r_buffer,\$value) = \@_;\n";
 		print $FH "\tif (0) {\n";
@@ -456,21 +511,8 @@ sub visitEnum {
 	print $FH "}\n";
 }
 
-
 #
-#	3.10.3	Constructed Recursive Types and Forward Declarations
-#
-
-sub visitForwardStructType {
-	# empty
-}
-
-sub visitForwardUnionType {
-	# empty
-}
-
-#
-#	3.10.4	Template Types
+#	3.11.3	Template Types
 #
 
 sub visitSequenceType {
@@ -480,23 +522,21 @@ sub visitSequenceType {
 	return if (exists $self->{done_hash}->{$name});
 	$self->{done_hash}->{$name} = 1;
 	if ($self->{srcname} eq $node->{filename}) {
-		my $type = $node->{type};
-		while (		$type->isa('TypeDeclarator')
-				and ! exists $type->{array_size} ) {
-			$type = $type->{type};
-		}
-		if (	   $node->{type}->isa('SequenceType')
-				or $node->{type}->isa('FixedPtType') ) {
+		my $type = $self->_get_defn($node->{type});
+		if (	   $type->isa('SequenceType')
+				or $type->isa('FixedPtType') ) {
 			$type->visit($self);
 		}
 		my $FH = $self->{out};
-		print $FH "# ",$name,"\n";
+		print $FH "# ",$name," (sequence)\n";
 		print $FH "sub ",$node->{pl_name},"__marshal {\n";
 		print $FH "\tmy (\$r_buffer,\$value,\$max) = \@_;\n";
 		print $FH "\tcroak \"undefined value for '",$node->{pl_name},"'.\\n\"\n";
 		print $FH "\t\t\tunless (defined \$value);\n";
 		if        ( $type->{pl_name} eq 'char'
 				 or $type->{pl_name} eq 'octet' ) {
+			print $FH "\tcroak \"value '\$value' is not a string.\\n\"\n";
+			print $FH "\t\t\tif (ref \$value);\n";
 			print $FH "\tmy \$len = length(\$value);\n";
 			print $FH "\tcroak \"too long sequence for '",$node->{pl_name},"' (max:\$max).\\n\"\n";
 			print $FH "\t\t\tif (defined \$max and \$len > \$max);\n";
@@ -537,8 +577,12 @@ sub visitFixedPtType {
 	# empty
 }
 
+sub visitFixedPtConstType {
+	# empty
+}
+
 #
-#	3.11	Exception Declaration
+#	3.12	Exception Declaration
 #
 
 sub visitException {
@@ -552,11 +596,12 @@ sub visitException {
 				unless (@{$node->{list_expr}});
 
 		foreach (@{$node->{list_expr}}) {
-			if (	   $_->{type}->isa('StructType')
-					or $_->{type}->isa('UnionType')
-					or $_->{type}->isa('SequenceType')
-					or $_->{type}->isa('FixedPtType') ) {
-				$_->{type}->visit($self);
+			my $type = $self->_get_defn($_->{type});
+			if (	   $type->isa('StructType')
+					or $type->isa('UnionType')
+					or $type->isa('SequenceType')
+					or $type->isa('FixedPtType') ) {
+				$type->visit($self);
 			}
 		}
 	}
@@ -564,19 +609,21 @@ sub visitException {
 		$self->{marshal} = '';
 		$self->{demarshal} = '';
 		foreach (@{$node->{list_value}}) {
-			$self->{val} = "\$value->{" . $_->{idf} . "}";
-			$_->visit($self);				# single or array
+			my $member = $self->_get_defn($_);			# single or array
+			$self->{val} = "\$value->{" . $member->{idf} . "}";
+			$member->visit($self);				# single or array
 		}
 		delete $self->{val};
 		my $FH = $self->{out};
-		print $FH "# ",$name,"\n";
+		print $FH "# ",$name," (exception)\n";
 		print $FH "sub ",$node->{pl_name},"__marshal {\n";
 		print $FH "\t\tmy (\$r_buffer,\$value) = \@_;\n";
 		print $FH "\t\tcroak \"undefined value for '",$node->{idf},"'.\\n\"\n";
 		print $FH "\t\t\t\tunless (defined \$value);\n";
 		foreach (@{$node->{list_value}}) {
-			print $FH "\t\tcroak \"no member '",$_->{idf},"' in structure '",$node->{idf},"'.\\n\"\n";
-			print $FH "\t\t\t\tunless (exists \$value->{",$_->{idf},"});\n";
+			my $member = $self->_get_defn($_);			# single or array
+			print $FH "\t\tcroak \"no member '",$member->{idf},"' in structure '",$node->{idf},"'.\\n\"\n";
+			print $FH "\t\t\t\tunless (exists \$value->{",$member->{idf},"});\n";
 		}
 		print $FH $self->{marshal};
 		print $FH "}\n";
@@ -604,7 +651,8 @@ sub visitException {
 		print $FH "\tmy \$str = \$self->SUPER::stringify() . \"\\n\";\n";
 		if (scalar(@{$node->{list_value}})) {
 			foreach (@{$node->{list_value}}) {
-				print $FH "\t\$str .= \"\\t",$_->{idf}," => \$self->{",$_->{idf},"}\\n\";\n";
+				my $member = $self->_get_defn($_);			# single or array
+				print $FH "\t\$str .= \"\\t",$member->{idf}," => \$self->{",$member->{idf},"}\\n\";\n";
 			}
 		} else {
 			print $FH "\t\$str .= \"\\t(no data)\";\n";
@@ -619,11 +667,11 @@ sub visitException {
 }
 
 #
-#	3.12	Operation Declaration		(specialized)
+#	3.13	Operation Declaration		(specialized)
 #
 
 #
-#	3.13	Attribute Declaration
+#	3.14	Attribute Declaration
 #
 
 sub visitAttribute {
@@ -631,6 +679,58 @@ sub visitAttribute {
 	my($node) = @_;
 	$node->{_get}->visit($self);
 	$node->{_set}->visit($self) if (exists $node->{_set});
+}
+
+#
+#	3.15	Repository Identity Related Declarations
+#
+
+sub visitTypeId {
+	# empty
+}
+
+sub visitTypePrefix {
+	# empty
+}
+
+#
+#	3.16	Event Declaration
+#
+
+sub visitRegularEvent {
+	# empty
+}
+
+sub visitAbstractEvent {
+	# empty
+}
+
+sub visitForwardRegularEvent {
+	# empty
+}
+
+sub visitForwardAbstractEvent {
+	# empty
+}
+
+#
+#	3.17	Component Declaration
+#
+
+sub visitComponent {
+	# empty
+}
+
+sub visitForwardComponent {
+	# empty
+}
+
+#
+#	3.18	Home Declaration
+#
+
+sub visitHome {
+	# empty
 }
 
 1;

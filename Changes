@@ -1,5 +1,9 @@
 Revision history for Perl extension CORBA::XS.
 
+0.20  Mon Jan 13 12:30:00 2003
+	- support CORBA IDL 3.0
+	- refactoring
+
 0.12  Tue Sep 17 08:30:00 2002
 	- add -J option
 

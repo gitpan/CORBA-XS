@@ -1,11 +1,14 @@
 use strict;
-
 use POSIX qw(ctime);
+
+#
+#			Interface Definition Language (OMG IDL CORBA v3.0)
+#
 
 package XS_C_Visitor;
 
 use vars qw($VERSION);
-$VERSION = '0.12';
+$VERSION = '0.20';
 
 sub new {
 	my $proto = shift;
@@ -16,9 +19,11 @@ sub new {
 	$self->{srcname} = $parser->YYData->{srcname};
 	$self->{srcname_size} = $parser->YYData->{srcname_size};
 	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
+	$self->{symbtab} = $parser->YYData->{symbtab};
 	$self->{modules} = [ @{$parser->YYData->{modules}} ];
 	$self->{inc} = {};
 	$self->{has_methodes} = 0;
+	$self->{num_key} = 'num_xs_c';
 	return $self;
 }
 
@@ -44,6 +49,16 @@ sub _insert_inc {
 	}
 }
 
+sub _get_defn {
+	my $self = shift;
+	my($defn) = @_;
+	if (ref $defn) {
+		return $defn;
+	} else {
+		return $self->{symbtab}->Lookup($defn);
+	}
+}
+
 #
 #	3.5		OMG IDL Specification
 #
@@ -56,7 +71,7 @@ sub visitSpecification {
 	$src_name =~ s/\.idl$//i;
 	$self->open_stream($src_name . '.c');
 	my $FH = $self->{out};
-	print $FH "/* This file is generated. DO NOT modify it */\n";
+	print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
 	print $FH "/*\n";
 	print $FH " * From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
 	print $FH " * Generation date : ",POSIX::ctime(time());
@@ -68,7 +83,7 @@ sub visitSpecification {
 	print $FH "\n";
 	$self->{newXS} = '';
 	foreach (@{$node->{list_decl}}) {
-		$_->visit($self);
+		$self->_get_defn($_)->visit($self);
 	}
 	print $FH "#ifdef __cplusplus\n";
 	print $FH "extern \"C\"\n";
@@ -189,8 +204,19 @@ sub visitSpecification {
 }
 
 #
-#	3.6		Module Declaration
+#	3.7		Module Declaration
 #
+
+sub visitModules {
+	my $self = shift;
+	my($node) = @_;
+	unless (exists $node->{$self->{num_key}}) {
+		$node->{$self->{num_key}} = 0;
+	}
+	my $module = ${$node->{list_decl}}[$node->{$self->{num_key}}];
+	$module->visit($self);
+	$node->{$self->{num_key}} ++;
+}
 
 sub visitModule {
 	my $self = shift;
@@ -198,7 +224,7 @@ sub visitModule {
 	my $FH = $self->{out};
 	if ($self->{srcname} eq $node->{filename}) {
 		foreach (@{$node->{list_decl}}) {
-			$_->visit($self);
+			$self->_get_defn($_)->visit($self);
 		}
 	} else {
 		$self->_insert_inc($node->{filename});
@@ -206,29 +232,55 @@ sub visitModule {
 }
 
 #
-#	3.7		Interface Declaration
+#	3.8		Interface Declaration
 #
 
-sub visitInterface {
+sub visitRegularInterface {
 	my $self = shift;
 	my($node) = @_;
-#	return if (exists $node->{modifier});	# abstract or local
 	if ($self->{srcname} eq $node->{filename}) {
+		$self->{itf} = $node->{c_name};
 		my $FH = $self->{out};
 		print $FH "/* interface ",$node->{pl_name}," */\n";
 		print $FH "\n";
 		foreach (values %{$node->{hash_attribute_operation}}) {
-			$_->visit($self);
+			$self->_get_defn($_)->visit($self);
 		}
 	}
 }
 
-sub visitForwardInterface {
+sub visitAbstractInterface {
+	my $self = shift;
+	my($node) = @_;
+	if ($self->{srcname} eq $node->{filename}) {
+		$self->{itf} = $node->{c_name};
+		my $FH = $self->{out};
+		print $FH "/* abstract interface ",$node->{pl_name}," */\n";
+		print $FH "\n";
+		foreach (values %{$node->{hash_attribute_operation}}) {
+			$self->_get_defn($_)->visit($self);
+		}
+	}
+}
+
+sub visitLocalInterface {
+	# C mapping is aligned with CORBA 2.1
+}
+
+sub visitForwardRegularInterface {
 	# empty
 }
 
+sub visitForwardAbstractInterface {
+	# empty
+}
+
+sub visitForwardLocalInterface {
+	# C mapping is aligned with CORBA 2.1
+}
+
 #
-#	3.8		Value Declaration
+#	3.9		Value Declaration
 #
 
 sub visitRegularValue {
@@ -252,7 +304,7 @@ sub visitForwardAbstractValue {
 }
 
 #
-#	3.9		Constant Declaration
+#	3.10	Constant Declaration
 #
 
 sub visitConstant {
@@ -260,7 +312,7 @@ sub visitConstant {
 }
 
 #
-#	3.10	Type Declaration
+#	3.11	Type Declaration
 #
 
 sub visitTypeDeclarators {
@@ -268,7 +320,7 @@ sub visitTypeDeclarators {
 }
 
 #
-#	3.10.2	Constructed Types
+#	3.11.2	Constructed Types
 #
 
 sub visitStructType {
@@ -279,14 +331,6 @@ sub visitUnionType {
 	# empty
 }
 
-sub visitEnumType {
-	# empty
-}
-
-#
-#	3.10.3	Constructed Recursive Types and Forward Declarations
-#
-
 sub visitForwardStructType {
 	# empty
 }
@@ -295,8 +339,12 @@ sub visitForwardUnionType {
 	# empty
 }
 
+sub visitEnumType {
+	# empty
+}
+
 #
-#	3.11	Exception Declaration
+#	3.12	Exception Declaration
 #
 
 sub visitException {
@@ -304,7 +352,7 @@ sub visitException {
 }
 
 #
-#	3.12	Operation Declaration
+#	3.13	Operation Declaration
 #
 
 sub visitOperation {
@@ -315,7 +363,7 @@ sub visitOperation {
 	my $c_package = $node->{pl_package};
 	$c_package =~ s/::/_/g;
 	if (exists $node->{modifier}) {		# oneway
-		print $FH "extern void cdr_",$node->{c_name},"(void * ref, char *is);\n";
+		print $FH "extern void cdr_",$self->{itf},"_",$node->{c_name},"(void * ref, char *is);\n";
 		print $FH "\n";
 		print $FH "XS(XS_",$c_package,"_cdr_",$node->{pl_name},")\n";
 		print $FH "{\n";
@@ -326,14 +374,14 @@ sub visitOperation {
 		print $FH "        void * ref = (void *)SvIV(ST(0));\n";
 		print $FH "        char * is = (char *)SvPV(ST(1),PL_na);\n";
 		print $FH "        dXSTARG;\n";
-		print $FH "        cdr_",$node->{c_name},"(ref, is);\n";
+		print $FH "        cdr_",$self->{itf},"_",$node->{c_name},"(ref, is);\n";
 		print $FH "        XSprePUSH; PUSHi((IV)0);\n";
 		print $FH "    }\n";
 		print $FH "    XSRETURN(1);\n";
 		print $FH "}\n";
 		print $FH "\n";
 	} else {
-		print $FH "extern int cdr_",$node->{c_name},"(void * ref, char *is, char **os);\n";
+		print $FH "extern int cdr_",$self->{itf},"_",$node->{c_name},"(void * ref, char *is, char **os);\n";
 		print $FH "\n";
 		print $FH "XS(XS_",$c_package,"_cdr_",$node->{pl_name},")\n";
 		print $FH "{\n";
@@ -346,7 +394,7 @@ sub visitOperation {
 		print $FH "        char * os;\n";
 		print $FH "        int size;\n";
 		print $FH "        dXSTARG;\n";
-		print $FH "        size = cdr_",$node->{c_name},"(ref, is, &os);\n";
+		print $FH "        size = cdr_",$self->{itf},"_",$node->{c_name},"(ref, is, &os);\n";
 		print $FH "        if (size >= 0)\n";
 		print $FH "            sv_setpvn((SV*)ST(2), os, size);\n";
 		print $FH "        SvSETMAGIC(ST(2));\n";
@@ -361,7 +409,7 @@ sub visitOperation {
 }
 
 #
-#	3.13	Attribute Declaration
+#	3.14	Attribute Declaration
 #
 
 sub visitAttribute {

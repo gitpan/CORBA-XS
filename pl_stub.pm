@@ -1,11 +1,15 @@
 use strict;
+use POSIX qw(ctime);
+
+#
+#			Interface Definition Language (OMG IDL CORBA v3.0)
+#
 
 use CORBA::XS::pl_cdr;
-use POSIX qw(ctime);
 
 package XS_PerlStubVisitor;
 
-@XS_PerlStubVisitor::ISA = qw(PerlCdrVisitor);
+use base qw(PerlCdrVisitor);
 
 # needs $node->{pl_name} $node->{pl_package} (PerlNameVisitor)
 
@@ -20,6 +24,7 @@ sub new {
 	$self->{srcname} = $parser->YYData->{srcname};
 	$self->{srcname_size} = $parser->YYData->{srcname_size};
 	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
+	$self->{symbtab} = $parser->YYData->{symbtab};
 	$self->{client} = 1;
 	$self->{use} = {};
 	if (exists $parser->YYData->{opt_J}) {
@@ -36,6 +41,7 @@ sub new {
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
 	$self->{has_methodes} = 0;
+	$self->{num_key} = 'num_pl_stub';
 	return $self;
 }
 
@@ -50,7 +56,7 @@ sub visitSpecification {
 	$filename =~ s/^([^\/]+\/)+//;
 	$filename =~ s/\.idl$//i;
 	my $FH = $self->{out};
-	print $FH "#   This file is generated. DO NOT modify it.\n";
+	print $FH "#   This file was generated (by ",$0,"). DO NOT modify it.\n";
 	print $FH "# From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
 	print $FH "# Generation date : ",POSIX::ctime(time());
 	print $FH "\n";
@@ -64,7 +70,7 @@ sub visitSpecification {
 	print $FH "use Carp;\n";
 	print $FH "\n";
 	foreach (@{$node->{list_decl}}) {
-		$_->visit($self);
+		$self->{symbtab}->Lookup($_)->visit($self);
 	}
 	if ($self->{has_methodes}) {
 		print $FH "package ",$filename,";\n";
@@ -88,41 +94,40 @@ sub visitSpecification {
 }
 
 #
-#	3.6		Module Declaration			(inherited)
+#	3.7		Module Declaration			(inherited)
 #
 
 #
-#	3.7		Interface Declaration
+#	3.8		Interface Declaration
 #
 
-sub visitInterface {
+sub visitRegularInterface {
 	my $self = shift;
 	my($node) = @_;
-#	return if (exists $node->{modifier});	# abstract or local
 	if ($self->{srcname} eq $node->{filename}) {
 		my $version;
 		my $FH = $self->{out};
 		print $FH "#\n";
 		print $FH "#   begin of interface ",$node->{pl_package},"\n";
 		print $FH "#\n";
-		print $FH "package ",$node->{pl_package},";\n";
 		print $FH "\n";
+		print $FH "package ",$node->{pl_package},";\n";
 		print $FH "\n";
 		print $FH "use CORBA::XS::CORBA;\n";
 		print $FH "use Carp;\n";
 		print $FH "\n";
-		$self->{itf} = $node->{idf};
-		$self->{repos_id} = $node->{repos_id};
 		foreach (@{$node->{list_decl}}) {
-			if (	   $_->isa('Operation')
-					or $_->isa('Attributes') ) {
+			my $defn = $self->_get_defn($_);
+			if (	   $defn->isa('Operation')
+					or $defn->isa('Attributes') ) {
 				next;
 			}
-			$_->visit($self);
+			$defn->visit($self);
 		}
 		print $FH "\n";
-		if (	    keys %{$node->{hash_attribute_operation}}
-			and ! exists $node->{modifier} ) {		# abstract or native
+		if (keys %{$node->{hash_attribute_operation}}) {
+			$self->{itf} = $node->{pl_name};
+			$self->{repos_id} = $node->{repos_id};
 			print $FH "######  methodes\n";
 			print $FH "\n";
 			print $FH "# constructor\n";
@@ -137,7 +142,7 @@ sub visitInterface {
 			print $FH "}\n";
 			print $FH "\n";
 			foreach (values %{$node->{hash_attribute_operation}}) {
-				$_->visit($self);
+				$self->_get_defn($_)->visit($self);
 			}
 			print $FH "\n";
 		}
@@ -150,24 +155,57 @@ sub visitInterface {
 	}
 }
 
+sub visitAbstractInterface {
+	my $self = shift;
+	my($node) = @_;
+	if ($self->{srcname} eq $node->{filename}) {
+		my $version;
+		my $FH = $self->{out};
+		print $FH "#\n";
+		print $FH "#   begin of abstract interface ",$node->{pl_package},"\n";
+		print $FH "#\n";
+		print $FH "\n";
+		print $FH "package ",$node->{pl_package},";\n";
+		print $FH "\n";
+		print $FH "use CORBA::XS::CORBA;\n";
+		print $FH "use Carp;\n";
+		print $FH "\n";
+		foreach (@{$node->{list_decl}}) {
+			my $defn = $self->_get_defn($_);
+			if (	   $defn->isa('Operation')
+					or $defn->isa('Attributes') ) {
+				next;
+			}
+			$defn->visit($self);
+		}
+		print $FH "\n";
+		print $FH "#\n";
+		print $FH "#   end of abstract interface ",$node->{pl_package},"\n";
+		print $FH "#\n";
+		print $FH "\n";
+	} else {
+		$self->_insert_use($node->{filename});
+	}
+}
+
 #
-#	3.8		Value Declaration			(inherited)
+#	3.9		Value Declaration			(inherited)
 #
 
 #
-#	3.9		Constant Declaration		(inherited)
+#	3.10	Constant Declaration		(inherited)
 #
 
 #
-#	3.10	Type Declaration			(inherited)
+#	3.11	Type Declaration			(inherited)
 #
 
 #
-#	3.11	Exception Declaration		(inherited)
+#	3.12	Exception Declaration		(inherited)
 #
 
 #
-#	3.12	Operation Declaration
+#	3.13	Operation Declaration
 #
 
 sub visitOperation {
@@ -175,7 +213,7 @@ sub visitOperation {
 	my($node) = @_;
 	$self->{has_methodes} = 1;
 	my $FH = $self->{out};
-	print $FH "# ",$node->{pl_package},"::",$node->{pl_name},"\n";
+	print $FH "# ",$self->{itf},"::",$node->{pl_name},"\n";
 	print $FH "sub ",$node->{pl_name}," {\n";
 	print $FH "\tmy \$self = shift;\n";
 	print $FH "\tmy \$_this = 0;\n";
@@ -195,11 +233,12 @@ sub visitOperation {
 	print $FH "\n";
 	print $FH "\tmy \$_is = '';\n";
 	foreach (@{$node->{list_param}}) {		# paramater
+		my $type = $self->_get_defn($_->{type});
 		if      ($_->{attr} eq 'in') {
-			print $FH "\t",$_->{type}->{pl_package},"::",$_->{type}->{pl_name},"__marshal";
+			print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal";
 				print $FH "(\\\$_is,\$",$_->{pl_name},");\n";
 		} elsif ($_->{attr} eq 'inout') {
-			print $FH "\t",$_->{type}->{pl_package},"::",$_->{type}->{pl_name},"__marshal";
+			print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal";
 				print $FH "(\\\$_is,\${\$r_",$_->{pl_name},"});\n";
 		}
 	}
@@ -222,17 +261,19 @@ sub visitOperation {
 		print $FH "\tmy \$_status = CORBA::exception_type__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
 		print $FH "\tif      (\$_status eq CORBA::NO_EXCEPTION) {\n";
 		my $nb = 0;
-		unless ($node->{type}->isa("VoidType")) {
+		my $type = $self->_get_defn($node->{type});
+		unless ($type->isa("VoidType")) {
 			print $FH "\t\tmy \$_return = ";
-				print $FH $node->{type}->{pl_package},"::",$node->{type}->{pl_name};
+				print $FH $type->{pl_package},"::",$type->{pl_name};
 				print $FH "__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
 			$nb ++;
 		}
 		foreach (@{$node->{list_param}}) {		# paramater
+			$type = $self->_get_defn($_->{type});
 			if (	   $_->{attr} eq 'inout'
 					or $_->{attr} eq 'out' ) {
 				print $FH "\t\tmy \$",$_->{pl_name}," = ";
-					print $FH $_->{type}->{pl_package},"::",$_->{type}->{pl_name};
+					print $FH $type->{pl_package},"::",$type->{pl_name};
 					print $FH "__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
 				$nb ++ if ($_->{attr} eq 'out');
 			}
@@ -246,7 +287,8 @@ sub visitOperation {
 		print $FH " " if ($nb > 0);
 		print $FH "(" if ($nb > 1);
 		my $first = 1;
-		unless ($node->{type}->isa("VoidType")) {
+		$type = $self->_get_defn($node->{type});
+		unless ($type->isa("VoidType")) {
 			print $FH "\$_return";
 			$first = 0;
 		}
@@ -263,11 +305,12 @@ sub visitOperation {
 		print $FH "\t\tmy \$_exception_id = CORBA::string__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
 		print $FH "\t\tif (0) {\n";
 		foreach (@{$node->{list_raise}}) {
-			print $FH "\t\t} elsif (\$_exception_id eq \"",$_->{repos_id},"\") {\n";
+			my $defn = $self->_get_defn($_);
+			print $FH "\t\t} elsif (\$_exception_id eq \"",$defn->{repos_id},"\") {\n";
 			print  $FH "\t\t\tmy \$_value = ";
-				print $FH $_->{pl_package},"::",$_->{pl_name};
+				print $FH $defn->{pl_package},"::",$defn->{pl_name};
 				print $FH "__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
-			print $FH "\t\t\tthrow ",$_->{pl_package},"::",$_->{pl_name},"(\n";
+			print $FH "\t\t\tthrow ",$defn->{pl_package},"::",$defn->{pl_name},"(\n";
 			print $FH "\t\t\t\t\t_repos_id => \$_exception_id,\n";
 			print $FH "\t\t\t\t\t\%{\$_value}\n";
 			print $FH "\t\t\t);\n";
@@ -293,7 +336,7 @@ sub visitOperation {
 }
 
 #
-#	3.13	Attribute Declaration		(inherited)
+#	3.14	Attribute Declaration		(inherited)
 #
 
 1;
