@@ -60,7 +60,6 @@ sub visitSpecification {
 	$self->{pkg_modif} = 0;
 	print $FH "#   This file was generated (by ",$0,"). DO NOT modify it.\n";
 	print $FH "# From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
-	print $FH "# Generation date : ",POSIX::ctime(time());
 	print $FH "\n";
 	print $FH "use strict;\n";
 	print $FH "\n";

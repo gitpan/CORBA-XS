@@ -103,7 +103,6 @@ sub visitTypeDeclarators {
 sub visitTypeDeclarator {
 	my $self = shift;
 	my ($node) = @_;
-	return if (exists $node->{modifier});	# native IDL2.2
 	my $type = $self->_get_defn($node->{type});
 	if (	   $type->isa('StructType')
 			or $type->isa('UnionType')
@@ -249,6 +248,10 @@ sub visitTypeDeclarator {
 		}
 	}
 	print $FH "\n";
+}
+
+sub visitNativeType {
+	# empty
 }
 
 #

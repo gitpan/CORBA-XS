@@ -8,7 +8,7 @@ use POSIX qw(ctime);
 package CORBA::XS::xs_c;
 
 use vars qw($VERSION);
-$VERSION = '0.40';
+$VERSION = '0.50';
 
 package CORBA::XS::C_Visitor;
 
@@ -74,7 +74,6 @@ sub visitSpecification {
 	print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
 	print $FH "/*\n";
 	print $FH " * From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
-	print $FH " * Generation date : ",POSIX::ctime(time());
 	print $FH " */\n";
 	print $FH "\n";
 	print $FH "#include \"EXTERN.h\"\n";
@@ -144,7 +143,7 @@ sub visitSpecification {
 	print OUT $src_name,".c\n";
 	print OUT $src_name,".h\n";
 	print OUT "cdr_",$src_name,".c\n";
-	print OUT "skel_",$src_name,".c0\n";
+	print OUT "skel_",$src_name,".c\n";
 	print OUT "corba.c\n";
 	print OUT "Changes\n";
 	print OUT "Makefile.PL\n";
@@ -292,6 +291,10 @@ sub visitConstant {
 #
 
 sub visitTypeDeclarators {
+	# empty
+}
+
+sub visitNativeType {
 	# empty
 }
 

@@ -1,6 +1,10 @@
 Revision history for Perl extension CORBA::XS.
 
-0.40  Tue Mar 16 12:30:00
+0.50  Tue May 18 18:30:00 2004
+	- compatible with CORBA::IDL 2.40
+	- automatic merge of skel_*.c
+
+0.40  Tue Mar 16 12:30:00 2004
 	- creation of CORBA::Perl
 
 0.31  Mon Feb 23 08:30:00 2004

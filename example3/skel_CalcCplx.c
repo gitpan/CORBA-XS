@@ -1,4 +1,7 @@
-/* This file is partialy generated.*/
+/* This file was partialy generated (by C:\Perl\bin\idl2xs_c.pl).*/
+/* From file : CalcCplx.idl, 181 octets, Tue May 21 09:34:52 2002
+ */
+
 /* START_EDIT */
 
 /* STOP_EDIT */
@@ -62,4 +65,4 @@ Cplx_CalcCplx_Sub(
  * end of module Cplx
  */
 
-/* end of file : skel_CalcCplx.c0 */
+/* end of file : skel_CalcCplx.c */

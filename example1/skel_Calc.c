@@ -1,9 +1,12 @@
-/* This file is partialy generated.*/
+/* This file was partialy generated (by C:\Perl\bin\idl2xs_c.pl).*/
+/* From file : Calc.idl, 273 octets, Wed May 01 11:26:54 2002
+ */
+
 /* START_EDIT */
 
 /* STOP_EDIT */
 
-#include "calc.h"
+#include "Calc.h"
 
 /* START_EDIT (Calc) */
 
@@ -89,4 +92,4 @@ Calc_Sub(
  * end of interface Calc
  */
 
-/* End Of File : calc.c0 */
+/* end of file : skel_Calc.c */

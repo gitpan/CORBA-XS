@@ -10,6 +10,7 @@ use UNIVERSAL;
 package CORBA::XS::CskeletonVisitor;
 
 use File::Basename;
+use POSIX qw(ctime);
 
 # needs $node->{c_name} (CnameVisitor) and $node->{c_arg} (CincludeVisitor)
 
@@ -23,13 +24,47 @@ sub new {
 #	$self->{prefix} = $prefix;
 	$self->{prefix} = '';
 	$self->{srcname} = $parser->YYData->{srcname};
+	$self->{srcname_size} = $parser->YYData->{srcname_size};
+	$self->{srcname_mtime} = $parser->YYData->{srcname_mtime};
 	$self->{symbtab} = $parser->YYData->{symbtab};
-	$self->{inc} = {};
-	my $filename = $prefix . basename($self->{srcname}, ".idl") . ".c0";
+	my $filename = $prefix . basename($self->{srcname}, ".idl") . ".c";
+	$self->parse($filename);
 	$self->open_stream($filename);
 	$self->{done_hash} = {};
 	$self->{num_key} = 'num_skel_c';
 	return $self;
+}
+
+sub parse {
+	my $self = shift;
+	my ($filename) = @_;
+	$self->{merge} = {};
+	return unless ( -r $filename);
+	open(IN, $filename)
+			or die "can't open $filename ($!).\n";
+	while (<IN>) {
+		if (/\/\* START_EDIT (\(([^\)]+)\))? \*\//) {
+			my $key = $2 || $self->{src_name};
+			my $code = "";
+			while (<IN>) {
+				last if (/\/\* STOP_EDIT/);
+				$code .= $_;
+			}
+			$self->{merge}->{$key} = $code;
+		}
+	}
+	close IN;
+}
+
+sub merge {
+	my $self = shift;
+	my ($key) = @_;
+	$key = $self->{srcname} unless ($key);
+	if (exists $self->{merge}->{$key}) {
+		return $self->{merge}->{$key};
+	} else {
+		return "\n";
+	}
 }
 
 sub open_stream {
@@ -62,8 +97,11 @@ sub visitSpecification {
 	$filename =~ s/\.idl$//i;
 	$filename = $self->{prefix} . $filename . '.h';
 	print OUT "/* This file was partialy generated (by ",$0,").*/\n";
-	print OUT "/* START_EDIT */\n";
+	print OUT "/* From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
+	print OUT " */\n";
 	print OUT "\n";
+	print OUT "/* START_EDIT */\n";
+	print OUT $self->merge();
 	print OUT "/* STOP_EDIT */\n";
 	print OUT "\n";
 	print OUT "#include \"",$filename,"\"\n";
@@ -117,7 +155,7 @@ sub visitRegularInterface {
 	my ($node) = @_;
 	if ($self->{srcname} eq $node->{filename}) {
 		print OUT "/* START_EDIT (",$node->{c_name},") */\n";
-		print OUT "\n";
+		print OUT $self->merge($node->{c_name});
 		print OUT "/* STOP_EDIT (",$node->{c_name},") */\n";
 		print OUT "\n";
 		print OUT "/*\n";
@@ -166,6 +204,10 @@ sub visitTypeDeclarator {
 	# empty
 }
 
+sub visitNativeType {
+	# C mapping is aligned with CORBA 2.1
+}
+
 sub visitStructType {
 	# empty
 }
@@ -201,12 +243,16 @@ sub visitException {
 sub visitOperation {
 	my $self = shift;
 	my ($node) = @_;
+	my $name = $self->{prefix} . $self->{itf} . "_" . $node->{c_name};
 	print OUT "\n";
 	print OUT "/*============================================================*/\n";
 	print OUT "/* ARGSUSED */\n";
-	print OUT $node->{c_arg},"\n" unless (exists $node->{modifier});
-	print OUT $node->{c_arg}," // oneway\n" if (exists $node->{modifier});
-	print OUT $self->{prefix},$self->{itf},"_",$node->{c_name},"(\n";
+	if (exists $node->{modifier}) {
+		print OUT $node->{c_arg}," // oneway\n";
+	} else {
+		print OUT $node->{c_arg},"\n";
+	}
+	print OUT $name,"(\n";
 	print OUT "\t",$self->{itf}," _o,\n";
 	foreach (@{$node->{list_param}}) {	# parameter
 		my $type = $self->_get_defn($_->{type});
@@ -226,9 +272,9 @@ sub visitOperation {
 			print OUT "\tstatic ",$defn->{c_name}," _",$defn->{c_name},";\n";
 		}
 	}
-	print OUT "/* START_EDIT (",$self->{prefix},$self->{itf},"_",$node->{c_name},") */\n";
-	print OUT "\n";
-	print OUT "/* STOP_EDIT (",$self->{prefix},$self->{itf},"_",$node->{c_name},") */\n";
+	print OUT "/* START_EDIT (",$name,") */\n";
+	print OUT $self->merge($name);
+	print OUT "/* STOP_EDIT (",$name,") */\n";
 	print OUT "}\n";
 	print OUT "\n";
 }

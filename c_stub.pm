@@ -50,7 +50,6 @@ sub visitSpecification {
 	my $FH = $self->{out};
 	print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
 	print $FH "/* From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
-	print $FH " * Generation date : ",POSIX::ctime(time());
 	print $FH " */\n";
 	print $FH "\n";
 	print $FH "#include <string.h>\n";
@@ -430,17 +429,19 @@ sub NameAttrTypeDeclarator {
 		} else {
 			warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
 		}
-	 } else {
-		if (exists $type->{modifier}) {		# native
-			warn __PACKAGE__,"::NameAttrTypeDeclarator native : not supplied \n";
-		} else {
-			my $type = $type->{type};
-			unless (ref $type) {
-				$type = $symbtab->Lookup($type);
-			}
-			return $proto->NameAttr($symbtab, $type, $attr, $name);
+	} else {
+		my $type = $type->{type};
+		unless (ref $type) {
+			$type = $symbtab->Lookup($type);
 		}
+		return $proto->NameAttr($symbtab, $type, $attr, $name);
 	}
+}
+
+sub NameAttrNativeType {
+	my $proto = shift;
+	my($symbtab, $type, $attr, $name) = @_;
+	warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
 }
 
 sub NameAttrBasicType {
@@ -648,17 +649,19 @@ sub NameAttrTypeDeclarator {
 		} else {
 			warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
 		}
-	 } else {
-		if (exists $type->{modifier}) {		# native
-			warn __PACKAGE__,"::NameAttrTypeDeclarator native : not supplied \n";
-		} else {
-			my $type = $type->{type};
-			unless (ref $type) {
-				$type = $symbtab->Lookup($type);
-			}
-			return $proto->NameAttr($symbtab, $type, $attr, $name);
+	} else {
+		my $type = $type->{type};
+		unless (ref $type) {
+			$type = $symbtab->Lookup($type);
 		}
+		return $proto->NameAttr($symbtab, $type, $attr, $name);
 	}
+}
+
+sub NameAttrNativeType {
+	my $proto = shift;
+	my($symbtab, $type, $attr, $name) = @_;
+	warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
 }
 
 sub NameAttrBasicType {
@@ -888,17 +891,19 @@ sub NameAttrTypeDeclarator {
 		} else {
 			warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
 		}
-	 } else {
-		if (exists $type->{modifier}) {		# native
-			warn __PACKAGE__,"::NameAttrTypeDeclarator native : not supplied \n";
-		} else {
-			my $type = $type->{type};
-			unless (ref $type) {
-				$type = $symbtab->Lookup($type);
-			}
-			return $proto->NameAttr($symbtab, $type, $attr);
+	} else {
+		my $type = $type->{type};
+		unless (ref $type) {
+			$type = $symbtab->Lookup($type);
 		}
+		return $proto->NameAttr($symbtab, $type, $attr);
 	}
+}
+
+sub NameAttrNativeType {
+	my $proto = shift;
+	my($symbtab, $type, $attr) = @_;
+	warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
 }
 
 sub NameAttrBasicType {
@@ -1082,17 +1087,19 @@ sub NameAttrTypeDeclarator {
 		} else {
 			warn __PACKAGE__,"::NameTypeDeclarator : ERROR_INTERNAL $attr \n";
 		}
-	 } else {
-		if (exists $type->{modifier}) {		# native
-			warn __PACKAGE__,"::NameAttrTypeDeclarator native : not supplied \n";
-		} else {
-			my $type = $type->{type};
-			unless (ref $type) {
-				$type = $symbtab->Lookup($type);
-			}
-			return $proto->NameAttr($symbtab, $type, $attr);
+	} else {
+		my $type = $type->{type};
+		unless (ref $type) {
+			$type = $symbtab->Lookup($type);
 		}
+		return $proto->NameAttr($symbtab, $type, $attr);
 	}
+}
+
+sub NameAttrNativeType {
+	my $proto = shift;
+	my($symbtab, $type, $attr) = @_;
+	warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
 }
 
 sub NameAttrBasicType {
@@ -1282,17 +1289,19 @@ sub NameAttrTypeDeclarator {
 		} else {
 			warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
 		}
-	 } else {
-		if (exists $type->{modifier}) {		# native
-			warn __PACKAGE__,"::NameAttrTypeDeclarator native : not supplied \n";
-		} else {
-			my $type = $type->{type};
-			unless (ref $type) {
-				$type = $symbtab->Lookup($type);
-			}
-			return $proto->NameAttr($symbtab, $type, $attr);
+	} else {
+		my $type = $type->{type};
+		unless (ref $type) {
+			$type = $symbtab->Lookup($type);
 		}
+		return $proto->NameAttr($symbtab, $type, $attr);
 	}
+}
+
+sub NameAttrNativeType {
+	my $proto = shift;
+	my($symbtab, $type, $attr) = @_;
+	warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
 }
 
 sub NameAttrBasicType {
