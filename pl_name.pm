@@ -252,10 +252,6 @@ sub visitNameSequenceType {
 	my $self = shift;
 	my($node) = @_;
 	my $type = $self->_get_defn($node->{type});
-	while (     $type->isa('TypeDeclarator')
-			and ! exists $type->{array_size} ) {
-		$type = $self->_get_defn($type->{type});
-	}
 	$type->visitName($self);
 	$node->{pl_package} = $self->_get_pkg($node);
 	my $name = ($type->{pl_package} eq 'main') ? $type->{pl_name} : $type->{pl_package} . '::' . $type->{pl_name};

@@ -8,7 +8,7 @@ use POSIX qw(ctime);
 package XS_C_Visitor;
 
 use vars qw($VERSION);
-$VERSION = '0.20';
+$VERSION = '0.21';
 
 sub new {
 	my $proto = shift;

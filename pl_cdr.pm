@@ -192,8 +192,11 @@ sub visitTypeDeclarator {
 				print $FH "\t\t\tunless (scalar(\@{\$_}) == ",$_->{pl_literal},");\n";
 				print $FH "\tforeach (\@{\$_}) {\n";
 			}
-			print $FH "\t\t",$type->{pl_package},'::',$type->{pl_name};
-				print $FH "__marshal(\$r_buffer,\$_);\n";
+			if (exists $type->{max}) {
+				print $FH "\t\t",$type->{pl_package},'::',$type->{pl_name},"__marshal(\$r_buffer,\$_,",$type->{max}->{value},");\n";
+			} else {
+				print $FH "\t\t",$type->{pl_package},'::',$type->{pl_name},"__marshal(\$r_buffer,\$_);\n";
+			}
 			while ($n--) {
 				print $FH "\t}\n";
 			}
@@ -227,7 +230,11 @@ sub visitTypeDeclarator {
 			print $FH "\tmy (\$r_buffer,\$value) = \@_;\n";
 			print $FH "\tcroak \"undefined value for '",$node->{idf},"'.\\n\"\n";
 			print $FH "\t\t\tunless (defined \$value);\n";
-			print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal(\$r_buffer,\$value);\n";
+			if (exists $type->{max}) {
+				print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal(\$r_buffer,\$value,",$type->{max}->{value},");\n";
+			} else {
+				print $FH "\t",$type->{pl_package},"::",$type->{pl_name},"__marshal(\$r_buffer,\$value);\n";
+			}
 			print $FH "}\n";
 			print $FH "\n";
 			print $FH "sub ",$node->{idf},"__demarshal {\n";
