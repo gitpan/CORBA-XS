@@ -43,14 +43,10 @@ sub new {
 sub visitSpecification {
 	my $self = shift;
 	my($node) = @_;
-	my $filename = $self->{srcname};
-	$filename =~ s/^([^\/]+\/)+//;
-	$filename =~ s/\.idl$//i;
-	$filename = $self->{prefix} . $filename . '.h';
+	my $filename = $self->{prefix} . basename($self->{srcname}, ".idl") . '.h';
 	my $FH = $self->{out};
 	print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
-	print $FH "/* From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
-	print $FH " */\n";
+	print $FH "// From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
 	print $FH "\n";
 	print $FH "#include <string.h>\n";
 	print $FH "#include <",$self->{incpath},"cdr.h>\n";

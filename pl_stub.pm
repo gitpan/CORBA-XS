@@ -53,9 +53,7 @@ sub new {
 sub visitSpecification {
 	my $self = shift;
 	my($node) = @_;
-	my $filename = $self->{srcname};
-	$filename =~ s/^([^\/]+\/)+//;
-	$filename =~ s/\.idl$//i;
+	my $filename = basename($self->{srcname}, ".idl");
 	my $FH = $self->{out};
 	$self->{pkg_modif} = 0;
 	print $FH "#   This file was generated (by ",$0,"). DO NOT modify it.\n";

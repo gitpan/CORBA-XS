@@ -43,8 +43,8 @@ sub parse {
 	open(IN, $filename)
 			or die "can't open $filename ($!).\n";
 	while (<IN>) {
-		if (/\/\* START_EDIT (\(([^\)]+)\))? \*\//) {
-			my $key = $2 || $self->{src_name};
+		if (/\/\* START_EDIT (\(([^\)]+)\) )?\*\//) {
+			my $key = $2 || $self->{srcname};
 			my $code = "";
 			while (<IN>) {
 				last if (/\/\* STOP_EDIT/);
@@ -92,10 +92,7 @@ sub _get_defn {
 sub visitSpecification {
 	my $self = shift;
 	my ($node) = @_;
-	my $filename = $self->{srcname};
-	$filename =~ s/^([^\/]+\/)+//;
-	$filename =~ s/\.idl$//i;
-	$filename = $self->{prefix} . $filename . '.h';
+	my $filename = $self->{prefix} . basename($self->{srcname}, ".idl") . ".h";
 	print OUT "/* This file was partialy generated (by ",$0,").*/\n";
 	print OUT "/* From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
 	print OUT " */\n";

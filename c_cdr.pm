@@ -282,8 +282,8 @@ sub visitStructType {
 	$self->{get_out} = '';
 	$self->{free} = '';
 	$self->{union} = '';
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visit($self);		# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);		# member
 	}
 	my $FH = $self->{out};
 	print $FH "#define ADD_SIZE_",$node->{c_name},"(size,v) {\\\n";
@@ -759,8 +759,8 @@ sub visitException {
 	$self->{get_out} = '';
 	$self->{free} = '';
 	$self->{union} = '';
-	foreach (@{$node->{list_value}}) {
-		$self->_get_defn($_)->visit($self);		# single or array
+	foreach (@{$node->{list_member}}) {
+		$self->_get_defn($_)->visit($self);		# member
 	}
 	my $FH = $self->{out};
 	if (exists $self->{client}) {
