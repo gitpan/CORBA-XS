@@ -717,6 +717,9 @@ sub visitSequenceType {
 	}
 	print $FH "\t\t\tCORBA_free((v)->_buffer);\\\n";
 	print $FH "\t\t}\\\n";
+	if (exists $self->{client}) {
+		print $FH "\t\tCORBA_free(v);\\\n";
+	}
 	print $FH "\t}\n";
 	print $FH "#endif\n";
 	print $FH "\n";

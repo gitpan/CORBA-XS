@@ -8,7 +8,7 @@ use POSIX qw(ctime);
 package CORBA::XS::xs_c;
 
 use vars qw($VERSION);
-$VERSION = '0.51';
+$VERSION = '0.52';
 
 package CORBA::XS::C_Visitor;
 
