@@ -6,8 +6,8 @@ WriteMakefile(
     'VERSION_FROM'  => 'xs_c.pm',
     'ABSTRACT'      => 'IDL compiler to extension interface between Perl and C code',
     'PREREQ_PM'     => {
-                        'CORBA::IDL::node'  => 2.40,
-                        'CORBA::C::include' => 2.42,
+                        'CORBA::IDL::node'  => 2.45,
+                        'CORBA::C::include' => 2.43,
                         'CORBA::Perl::cdr'  => 0,
     },
     'PM'            => {

@@ -1,12 +1,12 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         CORBA-XS
-version:      0.52
+version:      0.53
 version_from: xs_c.pm
 installdirs:  site
 requires:
-    CORBA::C::include:             2.42
-    CORBA::IDL::node:              2.4
+    CORBA::C::include:             2.43
+    CORBA::IDL::node:              2.45
     CORBA::Perl::cdr:              0
 
 distribution_type: module

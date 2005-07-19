@@ -605,7 +605,19 @@ sub visitForwardUnionType {
 #
 
 sub visitEnumType {
-	# empty
+	my $self = shift;
+	my ($node) = @_;
+	return if (exists $self->{done_hash}->{$node->{c_name}});
+	$self->{done_hash}->{$node->{c_name}} = 1;
+	my $FH = $self->{out};
+	print $FH "#define ADD_SIZE_",$node->{c_name}," ADD_SIZE_CORBA_unsigned_long\n";
+	print $FH "#define PUT_",$node->{c_name}," PUT_CORBA_unsigned_long\n";
+	print $FH "#define GET_",$node->{c_name}," GET_CORBA_unsigned_long\n";
+	if (exists $self->{client}) {
+		print $FH "#define GET_inout_",$node->{c_name}," GET_",$node->{c_name},"\n";
+		print $FH "#define GET_out_",$node->{c_name}," GET_",$node->{c_name},"\n";
+	}
+	print $FH "\n";
 }
 
 #
