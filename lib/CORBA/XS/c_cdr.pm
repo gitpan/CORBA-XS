@@ -194,15 +194,15 @@ sub visitTypeDeclarator {
 				print $FH "\t\t\tFREE_inout_",$type->{c_name},"(",$node->{c_name},"_ptr);\\\n";
 				print $FH "\t\t}\\\n";
 				print $FH "\t}\n";
-				print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
-				print $FH "\t\t",$type->{c_name}," * ",$node->{c_name},"_ptr;\\\n";
-				print $FH "\t\tfor (",$node->{c_name},"_ptr = &(*(v))" . $start . ";\\\n";
-				print $FH "\t\t     ",$node->{c_name},"_ptr < &(*(v))" . $start . " + (",$nb,");\\\n";
-				print $FH "\t\t     ",$node->{c_name},"_ptr++) {\\\n";
-				print $FH "\t\t\tFREE_out_",$type->{c_name},"(",$node->{c_name},"_ptr);\\\n";
-				print $FH "\t\t}\\\n";
-				print $FH "\t}\n";
 			}
+			print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
+			print $FH "\t\t",$type->{c_name}," * ",$node->{c_name},"_ptr;\\\n";
+			print $FH "\t\tfor (",$node->{c_name},"_ptr = &(*(v))" . $start . ";\\\n";
+			print $FH "\t\t     ",$node->{c_name},"_ptr < &(*(v))" . $start . " + (",$nb,");\\\n";
+			print $FH "\t\t     ",$node->{c_name},"_ptr++) {\\\n";
+			print $FH "\t\t\tFREE_out_",$type->{c_name},"(",$node->{c_name},"_ptr);\\\n";
+			print $FH "\t\t}\\\n";
+			print $FH "\t}\n";
 			print $FH "#define FREE_",$node->{c_name},"(v) {\\\n";
 			print $FH "\t\t",$type->{c_name}," * ",$node->{c_name},"_ptr;\\\n";
 			print $FH "\t\tfor (",$node->{c_name},"_ptr = &(*(v))" . $start . ";\\\n";
@@ -237,8 +237,8 @@ sub visitTypeDeclarator {
 			} else {
 				print $FH "#define FREE_in_",$node->{c_name}," FREE_in_",$type->{c_name},"\n";
 				print $FH "#define FREE_inout_",$node->{c_name}," FREE_inout_",$type->{c_name},"\n";
-				print $FH "#define FREE_out_",$node->{c_name}," FREE_out_",$type->{c_name},"\n";
 			}
+			print $FH "#define FREE_out_",$node->{c_name}," FREE_out_",$type->{c_name},"\n";
 			print $FH "#define FREE_",$node->{c_name}," FREE_",$type->{c_name},"\n";
 		} else {
 			if (exists $self->{client}) {
@@ -311,13 +311,13 @@ sub visitStructType {
 			print $FH "\t}\n";
 			print $FH "#define FREE_in_",$node->{c_name}," FREE_",$node->{c_name},"\n";
 			print $FH "#define FREE_inout_",$node->{c_name}," FREE_",$node->{c_name},"\n";
-			print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
-			print $FH "\t\tif (NULL != (v)) {\\\n";
-			print $FH "\t\t\tFREE_",$node->{c_name},"(v);\\\n";
-			print $FH "\t\t\tCORBA_free(v);\\\n";
-			print $FH "\t}\\\n";
-			print $FH "\t}\n";
 		}
+		print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
+		print $FH "\t\tif (NULL != (v)) {\\\n";
+		print $FH "\t\t\tFREE_",$node->{c_name},"(v);\\\n";
+		print $FH "\t\t\tCORBA_free(v);\\\n";
+		print $FH "\t}\\\n";
+		print $FH "\t}\n";
 		print $FH "#define FREE_",$node->{c_name},"(v) {\\\n";
 		print $FH $self->{free};
 		print $FH "\t}\n";
@@ -523,12 +523,12 @@ sub visitUnionType {
 			print $FH "\t}\n";
 			print $FH "#define FREE_in_",$node->{c_name}," FREE_",$node->{c_name},"\n";
 			print $FH "#define FREE_inout_",$node->{c_name}," FREE_",$node->{c_name},"\n";
-			print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
-			print $FH "\t\tif (NULL != (v)) {\\\n";
-			print $FH "\t\t\tFREE_",$node->{c_name},"(v);\\\n";
-			print $FH "\t\t\tCORBA_free(v);\\\n";
-			print $FH "\t}\n";
 		}
+		print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
+		print $FH "\t\tif (NULL != (v)) {\\\n";
+		print $FH "\t\t\tFREE_",$node->{c_name},"(v);\\\n";
+		print $FH "\t\t\tCORBA_free(v);\\\n";
+		print $FH "\t}\n";
 		print $FH "#define FREE_",$node->{c_name},"(v) {\\\n";
 		print $FH "\t\tswitch ((v)->_d) {\\\n";
 		print $FH $self->{free};
@@ -710,13 +710,13 @@ sub visitSequenceType {
 		print $FH "\t}\n";
 		print $FH "#define FREE_in_",$node->{c_name}," FREE_",$node->{c_name},"\n";
 		print $FH "#define FREE_inout_",$node->{c_name}," FREE_",$node->{c_name},"\n";
-		print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
-		print $FH "\t\tif (NULL != (v)) {\\\n";
-		print $FH "\t\t\tFREE_",$node->{c_name},"(v);\\\n";
-		print $FH "\t\t\tCORBA_free(v);\\\n";
-		print $FH "\t\t}\\\n";
-		print $FH "\t}\n";
 	}
+	print $FH "#define FREE_out_",$node->{c_name},"(v) {\\\n";
+	print $FH "\t\tif (NULL != (v)) {\\\n";
+	print $FH "\t\t\tFREE_",$node->{c_name},"(v);\\\n";
+	print $FH "\t\t\tCORBA_free(v);\\\n";
+	print $FH "\t\t}\\\n";
+	print $FH "\t}\n";
 	print $FH "#define FREE_",$node->{c_name},"(v) {\\\n";
 	print $FH "\t\tif (NULL != (v)->_buffer) {\\\n";
 	if (defined $type->{length}) {

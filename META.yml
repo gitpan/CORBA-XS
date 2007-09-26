@@ -1,13 +1,13 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         CORBA-XS
-version:      0.53
-version_from: xs_c.pm
+version:      0.54
+version_from: lib/CORBA/XS.pm
 installdirs:  site
 requires:
-    CORBA::C::include:             2.43
-    CORBA::IDL::node:              2.45
-    CORBA::Perl::cdr:              0
+    CORBA::C:                      2.46
+    CORBA::IDL:                    2.47
+    CORBA::Perl:                   0
 
 distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.17
+generated_by: ExtUtils::MakeMaker version 6.30

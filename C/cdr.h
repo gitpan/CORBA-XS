@@ -461,10 +461,10 @@
 #define ALLOC_GET_out_CORBA_string(ptr,v)		{	\
 				CORBA_unsigned_long len;					\
 				GET_CORBA_unsigned_long(ptr,&len);		\
-				v = CORBA_string__alloc(len);				\
-				if (NULL == (v)) goto err;					\
-				memcpy((v),ptr,len);							\
-				if ((v)[len-1] != '\0') goto err;	\
+				*(v) = (CORBA_char *)CORBA_alloc(len);	\
+				if (NULL == *(v)) goto err;				\
+				memcpy(*(v),ptr,len);						\
+				if ((*(v))[len-1] != '\0') goto err;	\
 				ptr += len;										\
 				PTR_ALIGN_CORBA_char(ptr);					\
 			}

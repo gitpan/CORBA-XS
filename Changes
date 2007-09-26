@@ -1,5 +1,8 @@
 Revision history for Perl extension CORBA::XS.
 
+0.54  Wed Sep 26 12:30:00 2007
+	- reorg: more compliant with CPAN requirements
+
 0.53  Tue Jul 19 18:30:00 2005
 	- new enum (CORBA::C)
 

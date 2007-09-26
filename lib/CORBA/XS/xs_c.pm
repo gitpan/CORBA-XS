@@ -5,11 +5,6 @@ use POSIX qw(ctime);
 #			Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
-package CORBA::XS::xs_c;
-
-use vars qw($VERSION);
-$VERSION = '0.53';
-
 package CORBA::XS::C_Visitor;
 
 use File::Basename;

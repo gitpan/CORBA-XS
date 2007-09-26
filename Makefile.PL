@@ -3,27 +3,30 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
     'NAME'          => 'CORBA::XS',
-    'VERSION_FROM'  => 'xs_c.pm',
+    'VERSION_FROM'  => 'lib/CORBA/XS.pm',
     'ABSTRACT'      => 'IDL compiler to extension interface between Perl and C code',
     'PREREQ_PM'     => {
-                        'CORBA::IDL::node'  => 2.45,
-                        'CORBA::C::include' => 2.43,
-                        'CORBA::Perl::cdr'  => 0,
+                        'CORBA::IDL'    => 2.47,
+                        'CORBA::C'      => 2.46,
+                        'CORBA::Perl'   => 0,
     },
+    'INSTALLDIRS'   => 'site',
     'PM'            => {
-                        'xs_c.pm'       => '$(INST_LIBDIR)/XS/xs_c.pm',
-                        'c_cdr.pm'      => '$(INST_LIBDIR)/XS/c_cdr.pm',
-                        'c_skel.pm'     => '$(INST_LIBDIR)/XS/c_skel.pm',
-                        'c_stub.pm'     => '$(INST_LIBDIR)/XS/c_stub.pm',
-                        'pl_stub.pm'    => '$(INST_LIBDIR)/XS/pl_stub.pm',
-                        'C/corba.c'     => '$(INST_LIBDIR)/XS/corba.c',
-                        'C/corba.h'     => '$(INSTALLARCHLIB)/CORE/corba.h',
-                        'C/cdr.h'       => '$(INSTALLARCHLIB)/CORE/cdr.h'
+                        'lib/CORBA/XS.pm'           => '$(INST_LIBDIR)/XS.pm',
+                        'lib/CORBA/XS/xs_c.pm'      => '$(INST_LIBDIR)/XS/xs_c.pm',
+                        'lib/CORBA/XS/c_cdr.pm'     => '$(INST_LIBDIR)/XS/c_cdr.pm',
+                        'lib/CORBA/XS/c_skel.pm'    => '$(INST_LIBDIR)/XS/c_skel.pm',
+                        'lib/CORBA/XS/c_stub.pm'    => '$(INST_LIBDIR)/XS/c_stub.pm',
+                        'lib/CORBA/XS/pl_stub.pm'   => '$(INST_LIBDIR)/XS/pl_stub.pm',
+                        'C/corba.c'                 => '$(INST_LIBDIR)/XS/corba.c',
+                        'C/corba.h'                 => '$(INSTALLARCHLIB)/CORE/corba.h',
+                        'C/cdr.h'                   => '$(INSTALLARCHLIB)/CORE/cdr.h'
     },
-    'EXE_FILES'     => ['idl2xs_c.pl'],
+    'EXE_FILES'     => [ 'bin/idl2xs_c' ],
     'AUTHOR'        => "Francois PERRAD (francois.perrad\@gadz.org)",
     'dist'          => {
                         'COMPRESS'      => 'gzip',
                         'SUFFIX'        => '.gz',
     },
 );
+
