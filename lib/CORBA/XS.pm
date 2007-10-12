@@ -1,9 +1,15 @@
 use strict;
+use warnings;
 
 package CORBA::XS;
 
-use vars qw($VERSION);
-$VERSION = '0.54';
+our $VERSION = '0.60';
+
+use CORBA::XS::CdrCVisitor;
+use CORBA::XS::CVisitor;
+use CORBA::XS::SkeletonCVisitor;
+use CORBA::XS::StubCVisitor;
+use CORBA::XS::StubPerlVisitor;
 
 1;
 

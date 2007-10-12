@@ -1,4 +1,4 @@
-/* This file was partialy generated (by C:\Perl\bin\idl2xs_c.pl).*/
+/* This file was partialy generated (by idl2xs_c).*/
 /* From file : Calc.idl, 273 octets, Wed May 01 11:26:54 2002
  */
 
@@ -16,7 +16,8 @@
  * begin of interface Calc
  */
 
-/*============================================================*/
+/* START_COMMENT (Calc_Add) */
+/* STOP_COMMENT (Calc_Add) */
 /* ARGSUSED */
 CORBA_long
 Calc_Add(
@@ -32,7 +33,8 @@ Calc_Add(
 }
 
 
-/*============================================================*/
+/* START_COMMENT (Calc_Div) */
+/* STOP_COMMENT (Calc_Div) */
 /* ARGSUSED */
 CORBA_long
 Calc_Div(
@@ -42,8 +44,8 @@ Calc_Div(
 	CORBA_Environment * _ev
 )
 {
-	static Calc_DivisionByZero _Calc_DivisionByZero;
 /* START_EDIT (Calc_Div) */
+	static Calc_DivisionByZero _Calc_DivisionByZero;
 	if (0 == val2)
 	{
 		CORBA_exception_set(_ev, CORBA_USER_EXCEPTION, ex_Calc_DivisionByZero, &_Calc_DivisionByZero);
@@ -57,7 +59,8 @@ Calc_Div(
 }
 
 
-/*============================================================*/
+/* START_COMMENT (Calc_Mul) */
+/* STOP_COMMENT (Calc_Mul) */
 /* ARGSUSED */
 CORBA_long
 Calc_Mul(
@@ -73,7 +76,8 @@ Calc_Mul(
 }
 
 
-/*============================================================*/
+/* START_COMMENT (Calc_Sub) */
+/* STOP_COMMENT (Calc_Sub) */
 /* ARGSUSED */
 CORBA_long
 Calc_Sub(

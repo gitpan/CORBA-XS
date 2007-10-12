@@ -1,4 +1,4 @@
-/* This file was partialy generated (by C:\Perl\bin\idl2xs_c.pl).*/
+/* This file was partialy generated (by idl2xs_c).*/
 /* From file : CalcCplx.idl, 192 octets, Tue May 21 09:33:22 2002
  */
 
@@ -16,7 +16,8 @@
  * begin of interface CalcCplx
  */
 
-/*============================================================*/
+/* START_COMMENT (CalcCplx_Add) */
+/* STOP_COMMENT (CalcCplx_Add) */
 /* ARGSUSED */
 Cplx_Complex
 CalcCplx_Add(
@@ -36,7 +37,8 @@ CalcCplx_Add(
 }
 
 
-/*============================================================*/
+/* START_COMMENT (CalcCplx_Sub) */
+/* STOP_COMMENT (CalcCplx_Sub) */
 /* ARGSUSED */
 Cplx_Complex
 CalcCplx_Sub(

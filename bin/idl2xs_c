@@ -1,99 +1,74 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 use strict;
-use CORBA::IDL;
-use CORBA::IDL::parser30;
-use CORBA::IDL::symbtab;
-# visitors
-use CORBA::C;
-use CORBA::Perl;
-use CORBA::XS;
-use CORBA::IDL::repos_id;
-use CORBA::C::literal;
-use CORBA::C::name;
-use CORBA::C::include;
-use CORBA::C::type;
-use CORBA::XS::c_skel;
-use CORBA::XS::c_stub;
-use CORBA::XS::xs_c;
-use CORBA::Perl::name;
-use CORBA::Perl::literal;
-use CORBA::XS::pl_stub;
+use warnings;
 
-my $parser = new Parser;
-$parser->YYData->{verbose_error} = 1;		# 0, 1
-$parser->YYData->{verbose_warning} = 1;		# 0, 1
-$parser->YYData->{verbose_info} = 1;		# 0, 1
-$parser->YYData->{verbose_deprecated} = 0;	# 0, 1 (concerns only version '2.4' and upper)
-$parser->YYData->{symbtab} = new CORBA::IDL::Symbtab($parser);
-my $cflags = '-D__idl2xs_c';
-if ($Parser::IDL_version lt '3.0') {
-	$cflags .= ' -D_PRE_3_0_COMPILER_';
-}
-if ($^O eq 'MSWin32') {
-	$parser->YYData->{preprocessor} = 'cpp -C ' . $cflags;
-#	$parser->YYData->{preprocessor} = 'CL /E /C /nologo ' . $cflags;	# Microsoft VC
-}
-else {
-	$parser->YYData->{preprocessor} = 'cpp -C ' . $cflags;
-}
+use CORBA::IDL      2.60;
+use CORBA::C        2.60;
+use CORBA::Perl     0.40;
+use CORBA::XS;
+# visitors
+use CORBA::IDL::RepositoryIdVisitor;
+use CORBA::C::IncSkelVisitor;
+use CORBA::Perl::NameVisitor;
+use CORBA::Perl::LiteralVisitor;
+
+my $parser = CORBA::IDL::ParserFactory::create('3.0');
 $parser->getopts('hi:J:vx');
 if ($parser->YYData->{opt_v}) {
-	print "CORBA::XS $CORBA::XS::VERSION\n";
-	print "CORBA::Perl $CORBA::Perl::VERSION\n";
-	print "CORBA::C $CORBA::C::VERSION\n";
-	print "CORBA::IDL $CORBA::IDL::VERSION\n";
-	print "IDL $Parser::IDL_version\n";
-	print "$0\n";
-	print "Perl $] on $^O\n";
-	exit;
+    print "CORBA::XS $CORBA::XS::VERSION\n";
+    print "CORBA::Perl $CORBA::Perl::VERSION\n";
+    print "CORBA::C $CORBA::C::VERSION\n";
+    print "CORBA::IDL $CORBA::IDL::VERSION\n";
+    print "IDL $CORBA::IDL::Parser::IDL_VERSION\n";
+    print "$0\n";
+    print "Perl $] on $^O\n";
+    exit;
 }
 if ($parser->YYData->{opt_h}) {
-	use Pod::Usage;
-	pod2usage(-verbose => 1);
+    use Pod::Usage;
+    pod2usage(-verbose => 1);
 }
+
+my $cflags = '-D__idl2xs_c';
+if ($CORBA::IDL::Parser::IDL_VERSION lt '3.0') {
+    $cflags .= ' -D_PRE_3_0_COMPILER_';
+}
+my $preprocessor;
+if ($^O eq 'MSWin32') {
+    $preprocessor = 'cpp -C ' . $cflags;
+#    $preprocessor = 'CL /E /C /nologo ' . $cflags;      # Microsoft VC
+}
+else {
+    $preprocessor = 'cpp -C ' . $cflags;
+}
+$parser->Configure(
+        'preprocessor'          => $preprocessor,
+        'verbose_error'         => 1,   # 0, 1
+        'verbose_warning'       => 1,   # 0, 1
+        'verbose_info'          => 1,   # 0, 1
+        'verbose_deprecated'    => 0,   # 0, 1 (concerns only version '2.4' and upper)
+#        'collision_allowed'     => 1,
+);
 $parser->Run(@ARGV);
-$parser->YYData->{symbtab}->CheckForward();
-$parser->YYData->{symbtab}->CheckRepositoryID();
-
-if (exists $parser->YYData->{nb_error}) {
-	my $nb = $parser->YYData->{nb_error};
-	print "$nb error(s).\n"
-}
-if (        $parser->YYData->{verbose_warning}
-		and exists $parser->YYData->{nb_warning} ) {
-	my $nb = $parser->YYData->{nb_warning};
-	print "$nb warning(s).\n"
-}
-if (        $parser->YYData->{verbose_info}
-		and exists $parser->YYData->{nb_info} ) {
-	my $nb = $parser->YYData->{nb_info};
-	print "$nb info(s).\n"
-}
-if (        $parser->YYData->{verbose_deprecated}
-		and exists $parser->YYData->{nb_deprecated} ) {
-	my $nb = $parser->YYData->{nb_deprecated};
-	print "$nb deprecated(s).\n"
-}
-
-if (        exists $parser->YYData->{root}
-		and ! exists $parser->YYData->{nb_error} ) {
-	$parser->YYData->{root}->visit(new CORBA::IDL::repositoryIdVisitor($parser));
-	if (        $Parser::IDL_version ge '3.0'
-			and $parser->YYData->{opt_x} ) {
-		$parser->YYData->{symbtab}->Export();
-	}
-	$parser->YYData->{root}->visit(new CORBA::C::nameVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::C::literalVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::C::lengthVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::C::typeVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::C::incskelVisitor($parser, '', ''));
-	$parser->YYData->{root}->visit(new CORBA::XS::CskeletonVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::XS::CstubVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::Perl::nameVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::Perl::literalVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::XS::PerlStubVisitor($parser));
-	$parser->YYData->{root}->visit(new CORBA::XS::C_Visitor($parser));
+$parser->DisplayStatus();
+my $root = $parser->getRoot();
+if (defined $root) {
+    $root->visit(new CORBA::IDL::RepositoryIdVisitor($parser));
+    if ($parser->YYData->{opt_x}) {
+        $parser->Export();
+    }
+    $root->visit(new CORBA::C::NameVisitor($parser));
+    $root->visit(new CORBA::C::LiteralVisitor($parser));
+    $root->visit(new CORBA::C::LengthVisitor($parser));
+    $root->visit(new CORBA::C::TypeVisitor($parser));
+    $root->visit(new CORBA::C::IncSkelVisitor($parser, q{}, q{}));
+    $root->visit(new CORBA::XS::SkeletonCVisitor($parser));
+    $root->visit(new CORBA::XS::StubCVisitor($parser));
+    $root->visit(new CORBA::Perl::NameVisitor($parser));
+    $root->visit(new CORBA::Perl::LiteralVisitor($parser));
+    $root->visit(new CORBA::XS::StubPerlVisitor($parser));
+    $root->visit(new CORBA::XS::CVisitor($parser));
 }
 
 __END__
