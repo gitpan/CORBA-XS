@@ -1,11 +1,14 @@
-use strict;
-use POSIX qw(ctime);
 
 #
 #           Interface Definition Language (OMG IDL CORBA v3.0)
 #
 
 package CORBA::XS::StubCVisitor;
+
+use strict;
+use POSIX qw(ctime);
+
+our $VERSION = '0.61';
 
 use CORBA::XS::CdrCVisitor;
 use base qw(CORBA::XS::CdrCVisitor);
@@ -34,6 +37,624 @@ sub new {
     $self->{done_hash} = {};
     $self->{num_key} = 'num_c_stub';
     return $self;
+}
+
+sub _get_c_decl_var {
+    my $self = shift;
+    my($type, $attr, $name) = @_;
+
+    if (    $type->isa('BasicType')
+         or $type->isa('EnumType')
+         or $type->isa('FixedPtType') ) {
+        if (    $attr eq 'in' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'inout' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'out' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'return' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+    }
+    elsif ( $type->isa('StructType')
+         or $type->isa('UnionType') ) {
+        if (    $attr eq 'in' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'inout' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'out' ) {
+            if (defined $type->{length}) {      # variable
+                return $type->{c_name} . ' * ' . $name;
+            }
+            else {
+                return $type->{c_name} . q{ } . $name;
+            }
+        }
+        elsif ( $attr eq 'return' ) {
+            if (defined $type->{length}) {      # variable
+                return $type->{c_name} . ' * ' . $name;
+            }
+            else {
+                return $type->{c_name} . q{ } . $name;
+            }
+        }
+    }
+    elsif ( $type->isa('SequenceType') ) {
+        my $max = 0;
+        $max = $type->{max}->{c_literal} if (exists $type->{max});
+        if (    $attr eq 'in' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'inout' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'out' ) {
+            return $type->{c_name} . ' * ' . $name;
+        }
+        elsif ( $attr eq 'return' ) {
+            return $type->{c_name} . ' * ' . $name;
+        }
+    }
+    elsif ( $type->isa('StringType')
+         or $type->isa('WideStringType') ) {
+        if (    $attr eq 'in' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'inout' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'out' ) {
+            return $type->{c_name} . q{ } . $name;
+        }
+        elsif ( $attr eq 'return' ) {
+            return $type->{c_name} . '* ' . $name;
+        }
+    }
+    elsif ( $type->isa('TypeDeclarator') ) {
+        if (exists $type->{array_size}) {
+            warn "_get_c_decl_var TypeDeclarator $type->{idf} : empty array_size.\n"
+                    unless (@{$type->{array_size}});
+            if (    $attr eq 'in' ) {
+                return $type->{c_name} . q{ } . $name;
+            }
+            elsif ( $attr eq 'inout' ) {
+                return $type->{c_name} . q{ } . $name;
+            }
+            elsif ( $attr eq 'out' ) {
+                if (defined $type->{length}) {      # variable
+                    return $type->{c_name} . '_slice * ' . $name;
+                }
+                else {
+                    return $type->{c_name} . q{ } . $name;
+                }
+            }
+            elsif ( $attr eq 'return' ) {
+                return $type->{c_name} . '_slice ' . $name;
+            }
+        }
+        else {
+            my $type = $type->{type};
+            unless (ref $type) {
+                $type = $self->{symbtab}->Lookup($type);
+            }
+            return $self->_get_c_decl_var($type, $attr, $name);
+        }
+    }
+    elsif ( $type->isa('NativeType') ) {
+        warn "_get_c_decl_var NativeType : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('BaseInterface')
+         or $type->isa('ForwardBaseInterface') ) {
+        warn "_get_c_decl_var BaseInterface : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('AnyType') ) {
+        warn "_get_c_decl_var AnyType : not supplied \n";
+        return;
+    }
+    else {
+        my $class = ref $type;
+        warn "Please implement '$class' in '_get_c_decl_var'.\n";
+        return;
+    }
+}
+
+sub _get_c_init_var {
+    my $self = shift;
+    my($type, $attr, $name) = @_;
+
+    if (    $type->isa('BasicType')
+         or $type->isa('EnumType') ) {
+        if (    $attr eq 'in' ) {
+            return ();
+        }
+        elsif ( $attr eq 'inout' ) {
+            return ();
+        }
+        elsif ( $attr eq 'out' ) {
+            return ();
+        }
+        elsif ( $attr eq 'return' ) {
+            return ();
+        }
+    }
+    elsif ( $type->isa('FixedPtType') ) {
+        my $d = $type->{d}->{c_literal};
+        my $s = $type->{s}->{c_literal};
+        if (    $attr eq 'in' ) {
+            return (
+                $name . '._digits = ' . $d,
+                $name . '._scale = ' . $s,
+            );
+        }
+        elsif ( $attr eq 'inout' ) {
+            return (
+                $name . '._digits = ' . $d,
+                $name . '._scale = ' . $s,
+            );
+        }
+        elsif ( $attr eq 'out' ) {
+            return (
+                $name . '._digits = ' . $d,
+                $name . '._scale = ' . $s,
+            );
+        }
+        elsif ( $attr eq 'return' ) {
+            return (
+                $name . '._digits = ' . $d,
+                $name . '._scale = ' . $s,
+            );
+        }
+    }
+    elsif ( $type->isa('BaseInterface')
+         or $type->isa('ForwardBaseInterface') ) {
+        warn "_get_c_init_var BaseInterface : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('StructType')
+         or $type->isa('UnionType') ) {
+        if (    $attr eq 'in' ) {
+            return ();
+        }
+        elsif ( $attr eq 'inout' ) {
+            return ();
+        }
+        elsif ( $attr eq 'out' ) {
+            if (defined $type->{length}) {      # variable
+                return ($name . ' = NULL');
+            }
+            else {
+                return ();
+            }
+        }
+        elsif ( $attr eq 'return' ) {
+            if (defined $type->{length}) {      # variable
+                return ($name . ' = NULL');
+            }
+            else {
+                return ();
+            }
+        }
+    }
+    elsif ( $type->isa('SequenceType') ) {
+        my $max = 0;
+        $max = $type->{max}->{c_literal} if (exists $type->{max});
+        if (    $attr eq 'in' ) {
+            return (
+                $name . '._maximum = ' . $max,
+                $name . '._length = 0',
+                $name . '._buffer = NULL'
+            );
+        }
+        elsif ( $attr eq 'inout' ) {
+            return (
+                $name . '._maximum = ' . $max,
+                $name . '._length = 0',
+                $name . '._buffer = NULL'
+            );
+        }
+        elsif ( $attr eq 'out' ) {
+            return ($name . ' = NULL');
+        }
+        elsif ( $attr eq 'return' ) {
+            return ($name . ' = NULL');
+        }
+    }
+    elsif ( $type->isa('StringType')
+         or $type->isa('WideStringType') ) {
+        if (    $attr eq 'in' ) {
+            return ($name . ' = NULL');
+        }
+        elsif ( $attr eq 'inout' ) {
+            return ($name . ' = NULL');
+        }
+        elsif ( $attr eq 'out' ) {
+            return ($name . ' = NULL');
+        }
+        elsif ( $attr eq 'return' ) {
+            return ($name . ' = NULL');
+        }
+    }
+    elsif ( $type->isa('TypeDeclarator') ) {
+        if (exists $type->{array_size}) {
+            warn "_get_c_init_var TypeDeclarator $type->{idf} : empty array_size.\n"
+                    unless (@{$type->{array_size}});
+            if (    $attr eq 'in' ) {
+                return ();
+            }
+            elsif ( $attr eq 'inout' ) {
+                return ();
+            }
+            elsif ( $attr eq 'out' ) {
+                if (defined $type->{length}) {      # variable
+                    return ($name . ' = NULL');
+                }
+                else {
+                    return ();
+                }
+            }
+            elsif ( $attr eq 'return' ) {
+                return ();
+            }
+        }
+        else {
+            my $type = $type->{type};
+            unless (ref $type) {
+                $type = $self->{symbtab}->Lookup($type);
+            }
+            return $self->_get_c_init_var($type, $attr, $name);
+        }
+    }
+    elsif ( $type->isa('NativeType') ) {
+        warn "_get_c_init_var NativeType : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('AnyType') ) {
+        warn "_get_c_init_var AnyType : not supplied \n";
+        return;
+    }
+    else {
+        my $class = ref $type;
+        warn "Please implement '$class' in '_get_c_init_var'.\n";
+        return;
+    }
+}
+
+sub _get_c_name_call {
+    my $self = shift;
+    my($type, $attr, $name) = @_;
+
+    if (    $type->isa('BasicType')
+         or $type->isa('EnumType') ) {
+        if (    $attr eq 'in' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'return' ) {
+            return q{};
+        }
+    }
+    elsif ( $type->isa('BaseInterface')
+         or $type->isa('ForwardBaseInterface') ) {
+        warn "_get_c_name_call BaseInterface : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('StructType')
+         or $type->isa('UnionType')
+         or $type->isa('SequenceType')
+         or $type->isa('FixedPtType') ) {
+        if (    $attr eq 'in' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'return' ) {
+            return q{};
+        }
+    }
+    elsif ( $type->isa('StringType')
+         or $type->isa('WideStringType') ) {
+        if (    $attr eq 'in' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'return' ) {
+            return q{};
+        }
+    }
+    elsif ( $type->isa('TypeDeclarator') ) {
+        if (exists $type->{array_size}) {
+            warn "_get_c_name_call TypeDeclarator $type->{idf} : empty array_size.\n"
+                    unless (@{$type->{array_size}});
+            if (    $attr eq 'in' ) {
+                return q{};
+            }
+            elsif ( $attr eq 'inout' ) {
+                return q{};
+            }
+            elsif ( $attr eq 'out' ) {
+                if (defined $type->{length}) {      # variable
+                    return q{};
+                }
+                else {
+                    return q{};
+                }
+            }
+            elsif ( $attr eq 'return' ) {
+                return q{};
+            }
+        }
+        else {
+            my $type = $type->{type};
+            unless (ref $type) {
+                $type = $self->{symbtab}->Lookup($type);
+            }
+            return $self->_get_c_name_call($type, $attr);
+        }
+    }
+    elsif ( $type->isa('NativeType') ) {
+        warn "_get_c_name_call NativeType : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('AnyType') ) {
+        warn "_get_c_name_call AnyType : not supplied \n";
+        return;
+    }
+    else {
+        my $class = ref $type;
+        warn "Please implement '$class' in '_get_c_name_call'.\n";
+        return;
+    }
+}
+
+sub _get_c_name_put {
+    my $self = shift;
+    my($type, $attr, $name) = @_;
+
+    if (    $type->isa('BasicType')
+         or $type->isa('EnumType')
+         or $type->isa('FixedPtType') ) {
+        if (    $attr eq 'inout' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'out' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'return' ) {
+            return q{};
+        }
+    }
+    elsif ( $type->isa('BaseInterface')
+         or $type->isa('ForwardBaseInterface') ) {
+        warn "_get_c_name_put BaseInterface : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('StructType')
+         or $type->isa('UnionType') ) {
+        if (    $attr eq 'inout' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'out' ) {
+            if (defined $type->{length}) {      # variable
+                return '*';
+            }
+            else {
+                return q{};
+            }
+        }
+        elsif ( $attr eq 'return' ) {
+            if (defined $type->{length}) {      # variable
+                return '*';
+            }
+            else {
+                return q{};
+            }
+        }
+    }
+    elsif ( $type->isa('SequenceType') ) {
+        if (    $attr eq 'inout' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'out' ) {
+            return '*';
+        }
+        elsif ( $attr eq 'return' ) {
+            return '*';
+        }
+    }
+    elsif ( $type->isa('StringType')
+         or $type->isa('WideStringType') ) {
+        if (    $attr eq 'inout' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'out' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'return' ) {
+            return '*';
+        }
+    }
+    elsif ( $type->isa('TypeDeclarator') ) {
+        if (exists $type->{array_size}) {
+            warn "_get_c_name_put TypeDeclarator $type->{idf} : empty array_size.\n"
+                    unless (@{$type->{array_size}});
+            if (    $attr eq 'inout' ) {
+                return q{};
+            }
+            elsif ( $attr eq 'out' ) {
+                return q{};
+            }
+            elsif ( $attr eq 'return' ) {
+                return q{};
+            }
+        }
+        else {
+            my $type = $type->{type};
+            unless (ref $type) {
+                $type = $self->{symbtab}->Lookup($type);
+            }
+            return $self->_get_c_name_put($type, $attr);
+        }
+    }
+    elsif ( $type->isa('NativeType') ) {
+        warn "_get_c_name_put NativeType : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('AnyType') ) {
+        warn "_get_c_name_put AnyType : not supplied \n";
+        return;
+    }
+    else {
+        my $class = ref $type;
+        warn "Please implement '$class' in '_get_c_name_put'.\n";
+        return;
+    }
+}
+
+sub _get_c_ptrname_get {
+    my $self = shift;
+    my($type, $attr, $name) = @_;
+
+    if (    $type->isa('BasicType')
+         or $type->isa('EnumType')
+         or $type->isa('FixedPtType') ) {
+        if (    $attr eq 'in' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'return' ) {
+            return '&';
+        }
+    }
+    elsif ( $type->isa('BaseInterface')
+         or $type->isa('ForwardBaseInterface') ) {
+        warn "_get_c_ptrname_get BaseInterface : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('StructType')
+         or $type->isa('UnionType') ) {
+        if (    $attr eq 'in' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            if (defined $type->{length}) {      # variable
+                return q{};
+            }
+            else {
+                return '&';
+            }
+        }
+        elsif ( $attr eq 'return' ) {
+            if (defined $type->{length}) {      # variable
+                return q{};
+            }
+            else {
+                return '&';
+            }
+        }
+    }
+    elsif ( $type->isa('SequenceType') ) {
+        my $max = 0;
+        $max = $type->{max}->{c_literal} if (exists $type->{max});
+        if (    $attr eq 'in' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            return q{};
+        }
+        elsif ( $attr eq 'return' ) {
+            return q{};
+        }
+    }
+    elsif ( $type->isa('StringType')
+         or $type->isa('WideStringType') ) {
+        if (    $attr eq 'in' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'inout' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'out' ) {
+            return '&';
+        }
+        elsif ( $attr eq 'return' ) {
+            return q{};
+        }
+    }
+    elsif ( $type->isa('TypeDeclarator') ) {
+        if (exists $type->{array_size}) {
+            warn "_get_c_ptrname_get TypeDeclarator $type->{idf} : empty array_size.\n"
+                    unless (@{$type->{array_size}});
+            if (    $attr eq 'in' ) {
+                return '&';
+            }
+            elsif ( $attr eq 'inout' ) {
+                return '&';
+            }
+            elsif ( $attr eq 'out' ) {
+                if (defined $type->{length}) {      # variable
+                    return '&';
+                }
+                else {
+                    return '&';
+                }
+            }
+            elsif ( $attr eq 'return' ) {
+                return '&';
+            }
+        }
+        else {
+            my $type = $type->{type};
+            unless (ref $type) {
+                $type = $self->{symbtab}->Lookup($type);
+            }
+            return $self->_get_c_ptrname_get($type, $attr);
+        }
+    }
+    elsif ( $type->isa('NativeType') ) {
+        warn "_get_c_ptrname_get NativeType native : not supplied \n";
+        return;
+    }
+    elsif ( $type->isa('AnyType') ) {
+        warn "_get_c_ptrname_get AnyType : not supplied \n";
+        return;
+    }
+    else {
+        my $class = ref $type;
+        warn "Please implement '$class' in '_get_c_ptrname_get'.\n";
+        return;
+    }
 }
 
 #
@@ -154,26 +775,26 @@ sub visitOperation {
     unless ($type->isa('VoidType')) {               # return
         $label_err = $type->{length};
         $nb_param_out ++;
-        $node->{c_put_name} = CORBA::XS::Cname_put2->NameAttr($self->{symbtab}, $type, 'return') . '_ret';
+        $node->{c_put_name} = $self->_get_c_name_put($type, 'return') . '_ret';
     }
     foreach (@{$node->{list_in}}) {                 # parameter
         $type = $self->_get_defn($_->{type});
-        $_->{c_get_ptr_name} = CORBA::XS::Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+        $_->{c_get_ptr_name} = $self->_get_c_ptrname_get($type, $_->{attr}) . $_->{c_name};
         $label_err ||= $type->{length};
         $nb_param_in ++;
     }
     foreach (@{$node->{list_inout}}) {              # parameter
         $type = $self->_get_defn($_->{type});
-        $_->{c_get_ptr_name} = CORBA::XS::Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
-        $_->{c_put_name} = CORBA::XS::Cname_put2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+        $_->{c_get_ptr_name} = $self->_get_c_ptrname_get($type, $_->{attr}) . $_->{c_name};
+        $_->{c_put_name} = $self->_get_c_name_put($type, $_->{attr}) . $_->{c_name};
         $label_err ||= $type->{length};
         $nb_param_in ++;
         $nb_param_out ++;
     }
     foreach (@{$node->{list_out}}) {                # parameter
         $type = $self->_get_defn($_->{type});
-        $_->{c_get_ptr_name} = CORBA::XS::Cptrname_get2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
-        $_->{c_put_name} = CORBA::XS::Cname_put2->NameAttr($self->{symbtab}, $type, $_->{attr}) . $_->{c_name};
+        $_->{c_get_ptr_name} = $self->_get_c_ptrname_get($type, $_->{attr}) . $_->{c_name};
+        $_->{c_put_name} = $self->_get_c_name_put($type, $_->{attr}) . $_->{c_name};
         $nb_param_out ++;
     }
     my $nb_user_except = 0;
@@ -189,11 +810,11 @@ sub visitOperation {
     print $FH "\tCORBA_Environment _Ev;\n";
     $type = $self->_get_defn($node->{type});
     unless ($type->isa('VoidType')) {
-        print $FH "\t",CORBA::XS::Cdecl_var->NameAttr($self->{symbtab}, $type, 'return', '_ret'),";\n";
+        print $FH "\t",$self->_get_c_decl_var($type, 'return', '_ret'),";\n";
     }
     foreach (@{$node->{list_param}}) {  # parameter
         $type = $self->_get_defn($_->{type});
-        print $FH "\t",CORBA::XS::Cdecl_var->NameAttr($self->{symbtab}, $type, $_->{attr}, $_->{c_name}),";\n";
+        print $FH "\t",$self->_get_c_decl_var($type, $_->{attr}, $_->{c_name}),";\n";
     }
     if ($nb_param_in or $nb_param_out or $nb_user_except) {
         print $FH "\tCORBA_char *_p;\n";
@@ -205,14 +826,14 @@ sub visitOperation {
     print $FH "\n";
     $type = $self->_get_defn($node->{type});
     unless ($type->isa('VoidType')) {
-        my @init = CORBA::XS::Cinit_var->NameAttr($self->{symbtab}, $type, 'return', '_ret');
+        my @init = $self->_get_c_init_var($type, 'return', '_ret');
         foreach (@init) {
             print $FH "\t",$_,";\n";
         }
     }
     foreach (@{$node->{list_param}}) {  # parameter
         $type = $self->_get_defn($_->{type});
-        my @init = CORBA::XS::Cinit_var->NameAttr($self->{symbtab}, $type, $_->{attr}, $_->{c_name});
+        my @init = $self->_get_c_init_var($type, $_->{attr}, $_->{c_name});
         foreach (@init) {
             print $FH "\t",$_,";\n";
         }
@@ -234,13 +855,13 @@ sub visitOperation {
         print $FH "\t",$self->{prefix},$self->{itf},"_",$node->{c_name},"(\n";
     }
     else {
-        print $FH "\t",CORBA::XS::Cname_call->NameAttr($self->{symbtab}, $type, 'return'),"_ret = ";
+        print $FH "\t",$self->_get_c_name_call($type, 'return'),"_ret = ";
             print $FH $self->{prefix},$self->{itf},"_",$node->{c_name},"(\n";
     }
     print $FH "\t\t_ref,\n";
     foreach (@{$node->{list_param}}) {
         $type = $self->_get_defn($_->{type});
-        print $FH "\t\t",CORBA::XS::Cname_call->NameAttr($self->{symbtab}, $type, $_->{attr}),$_->{c_name},",";
+        print $FH "\t\t",$self->_get_c_name_call($type, $_->{attr}),$_->{c_name},",";
             print $FH " /* ",$_->{attr}," (variable length) */\n" if (defined $type->{length});
             print $FH " /* ",$_->{attr}," (fixed length) */\n" unless (defined $type->{length});
     }
@@ -371,1287 +992,6 @@ sub visitOperation {
 #
 #   3.14    Attribute Declaration       (inherited)
 #
-
-##############################################################################
-
-package CORBA::XS::Cdecl_var;
-
-#
-#   See 1.21    Summary of Argument/Result Passing
-#
-
-# needs $type->{length}
-
-sub NameAttr {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    my $class = ref $type;
-    $class = 'BasicType' if ($type->isa('BasicType'));
-    $class = 'AnyType' if ($type->isa('AnyType'));
-    $class = 'BaseInterface' if ($type->isa('BaseInterface'));
-    $class = 'ForwardBaseInterface' if ($type->isa('ForwardBaseInterface'));
-    my $func = 'NameAttr' . $class;
-    if($proto->can($func)) {
-        return $proto->$func($symbtab, $type, $attr, $name);
-    }
-    else {
-        warn "Please implement a function '$func' in '",__PACKAGE__,"'.\n";
-    }
-}
-
-sub NameAttrBaseInterface {
-    warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
-}
-
-sub NameAttrForwardBaseInterface {
-    warn __PACKAGE__,"::NameAttrForwardInterface : not supplied \n";
-}
-
-sub NameAttrTypeDeclarator {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (exists $type->{array_size}) {
-        warn __PACKAGE__,"::NameAttrTypeDeclarator $type->{idf} : empty array_size.\n"
-                unless (@{$type->{array_size}});
-        if (    $attr eq 'in' ) {
-            return $type->{c_name} . q{ } . $name;
-        }
-        elsif ( $attr eq 'inout' ) {
-            return $type->{c_name} . q{ } . $name;
-        }
-        elsif ( $attr eq 'out' ) {
-            if (defined $type->{length}) {      # variable
-                return $type->{c_name} . '_slice * ' . $name;
-            }
-            else {
-                return $type->{c_name} . q{ } . $name;
-            }
-        }
-        elsif ( $attr eq 'return' ) {
-            return $type->{c_name} . '_slice ' . $name;
-        }
-        else {
-            warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
-        }
-    }
-    else {
-        my $type = $type->{type};
-        unless (ref $type) {
-            $type = $symbtab->Lookup($type);
-        }
-        return $proto->NameAttr($symbtab, $type, $attr, $name);
-    }
-}
-
-sub NameAttrNativeType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
-}
-
-sub NameAttrBasicType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'return' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrBasicType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrAnyType {
-    warn __PACKAGE__,"::NameAttrAnyType : not supplied \n";
-}
-
-sub NameAttrStructType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return $type->{c_name} . ' * ' . $name;
-        }
-        else {
-            return $type->{c_name} . q{ } . $name;
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return $type->{c_name} . ' * ' . $name;
-        }
-        else {
-            return $type->{c_name} . q{ } . $name;
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStructType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrUnionType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return $type->{c_name} . ' * ' . $name;
-        }
-        else {
-            return $type->{c_name} . q{ } . $name;
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return $type->{c_name} . ' * ' . $name;
-        }
-        else {
-            return $type->{c_name} . q{ } . $name;
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrUnionType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrEnumType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'return' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrEnumType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrSequenceType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    my $max = 0;
-    $max = $type->{max}->{c_literal} if (exists $type->{max});
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        return $type->{c_name} . ' * ' . $name;
-    }
-    elsif ( $attr eq 'return' ) {
-        return $type->{c_name} . ' * ' . $name;
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrSequenceType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'return' ) {
-        return $type->{c_name} . '* ' . $name;
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrWideStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'return' ) {
-        return $type->{c_name} . '* ' . $name;
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrWideStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrFixedPtType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'inout' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'out' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    elsif ( $attr eq 'return' ) {
-        return $type->{c_name} . q{ } . $name;
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrFixedPtType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-##############################################################################
-
-package CORBA::XS::Cinit_var;
-
-#
-#   See 1.21    Summary of Argument/Result Passing
-#
-
-# needs $type->{length}
-
-sub NameAttr {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    my $class = ref $type;
-    $class = 'BasicType' if ($type->isa('BasicType'));
-    $class = 'AnyType' if ($type->isa('AnyType'));
-    $class = 'BaseInterface' if ($type->isa('BaseInterface'));
-    $class = 'ForwardBaseInterface' if ($type->isa('ForwardBaseInterface'));
-    my $func = 'NameAttr' . $class;
-    if($proto->can($func)) {
-        return $proto->$func($symbtab, $type, $attr, $name);
-    }
-    else {
-        warn "Please implement a function '$func' in '",__PACKAGE__,"'.\n";
-    }
-}
-
-sub NameAttrBaseInterface {
-    warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
-}
-
-sub NameAttrForwardBaseInterface {
-    warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
-}
-
-sub NameAttrTypeDeclarator {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (exists $type->{array_size}) {
-        warn __PACKAGE__,"::NameAttrTypeDeclarator $type->{idf} : empty array_size.\n"
-                unless (@{$type->{array_size}});
-        if (    $attr eq 'in' ) {
-            return ();
-        }
-        elsif ( $attr eq 'inout' ) {
-            return ();
-        }
-        elsif ( $attr eq 'out' ) {
-            if (defined $type->{length}) {      # variable
-                return ($name . ' = NULL');
-            }
-            else {
-                return ();
-            }
-        }
-        elsif ( $attr eq 'return' ) {
-            return ();
-        }
-        else {
-            warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
-        }
-    }
-    else {
-        my $type = $type->{type};
-        unless (ref $type) {
-            $type = $symbtab->Lookup($type);
-        }
-        return $proto->NameAttr($symbtab, $type, $attr, $name);
-    }
-}
-
-sub NameAttrNativeType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
-}
-
-sub NameAttrBasicType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return ();
-    }
-    elsif ( $attr eq 'inout' ) {
-        return ();
-    }
-    elsif ( $attr eq 'out' ) {
-        return ();
-    }
-    elsif ( $attr eq 'return' ) {
-        return ();
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrBasicType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrAnyType {
-    warn __PACKAGE__,"::NameAttrAnyType : not supplied \n";
-}
-
-sub NameAttrStructType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return ();
-    }
-    elsif ( $attr eq 'inout' ) {
-        return ();
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return ($name . ' = NULL');
-        }
-        else {
-            return ();
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return ($name . ' = NULL');
-        }
-        else {
-            return ();
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStructType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrUnionType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return ();
-    }
-    elsif ( $attr eq 'inout' ) {
-        return ();
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return ($name . ' = NULL');
-        }
-        else {
-            return ();
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return ($name . ' = NULL');
-        }
-        else {
-            return ();
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrUnionType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrEnumType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return ();
-    }
-    elsif ( $attr eq 'inout' ) {
-        return ();
-    }
-    elsif ( $attr eq 'out' ) {
-        return ();
-    }
-    elsif ( $attr eq 'return' ) {
-        return ();
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrEnumType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrSequenceType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    my $max = 0;
-    $max = $type->{max}->{c_literal} if (exists $type->{max});
-    if (    $attr eq 'in' ) {
-        return (
-            $name . '._maximum = ' . $max,
-            $name . '._length = 0',
-            $name . '._buffer = NULL'
-        );
-    }
-    elsif ( $attr eq 'inout' ) {
-        return (
-            $name . '._maximum = ' . $max,
-            $name . '._length = 0',
-            $name . '._buffer = NULL'
-        );
-    }
-    elsif ( $attr eq 'out' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'return' ) {
-        return ($name . ' = NULL');
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrSequenceType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'inout' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'out' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'return' ) {
-        return ($name . ' = NULL');
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrWideStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    if (    $attr eq 'in' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'inout' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'out' ) {
-        return ($name . ' = NULL');
-    }
-    elsif ( $attr eq 'return' ) {
-        return ($name . ' = NULL');
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrWideStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrFixedPtType {
-    my $proto = shift;
-    my($symbtab, $type, $attr, $name) = @_;
-    my $d = $type->{d}->{c_literal};
-    my $s = $type->{s}->{c_literal};
-    if (    $attr eq 'in' ) {
-        return (
-            $name . '._digits = ' . $d,
-            $name . '._scale = ' . $s,
-        );
-    }
-    elsif ( $attr eq 'inout' ) {
-        return (
-            $name . '._digits = ' . $d,
-            $name . '._scale = ' . $s,
-        );
-    }
-    elsif ( $attr eq 'out' ) {
-        return (
-            $name . '._digits = ' . $d,
-            $name . '._scale = ' . $s,
-        );
-    }
-    elsif ( $attr eq 'return' ) {
-        return (
-            $name . '._digits = ' . $d,
-            $name . '._scale = ' . $s,
-        );
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrFixedPtType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-##############################################################################
-
-package CORBA::XS::Cname_call;
-
-#
-#   See 1.21    Summary of Argument/Result Passing
-#
-
-# needs $type->{length}
-
-sub NameAttr {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    my $class = ref $type;
-    $class = 'BasicType' if ($type->isa('BasicType'));
-    $class = 'AnyType' if ($type->isa('AnyType'));
-    $class = 'BaseInterface' if ($type->isa('BaseInterface'));
-    $class = 'ForwardBaseInterface' if ($type->isa('ForwardBaseInterface'));
-    my $func = 'NameAttr' . $class;
-    if($proto->can($func)) {
-        return $proto->$func($symbtab, $type, $attr);
-    }
-    else {
-        warn "Please implement a function '$func' in '",__PACKAGE__,"'.\n";
-    }
-}
-
-sub NameAttrBaseInterface {
-    warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
-}
-
-sub NameAttrAbstractInterface {
-    warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
-}
-
-sub NameAttrTypeDeclarator {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (exists $type->{array_size}) {
-        warn __PACKAGE__,"::NameAttrTypeDeclarator $type->{idf} : empty array_size.\n"
-                unless (@{$type->{array_size}});
-        if (    $attr eq 'in' ) {
-            return q{};
-        }
-        elsif ( $attr eq 'inout' ) {
-            return q{};
-        }
-        elsif ( $attr eq 'out' ) {
-            if (defined $type->{length}) {      # variable
-                return q{};
-            }
-            else {
-                return q{};
-            }
-        }
-        elsif ( $attr eq 'return' ) {
-            return q{};
-        }
-        else {
-            warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
-        }
-    }
-    else {
-        my $type = $type->{type};
-        unless (ref $type) {
-            $type = $symbtab->Lookup($type);
-        }
-        return $proto->NameAttr($symbtab, $type, $attr);
-    }
-}
-
-sub NameAttrNativeType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
-}
-
-sub NameAttrBasicType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrBasicType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrAnyType {
-    warn __PACKAGE__,"::NameAttrAnyType : not supplied \n";
-}
-
-sub NameAttrStructType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStructType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrUnionType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrUnionType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrEnumType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrEnumType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrSequenceType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrSequenceType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrWideStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrWideStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrFixedPtType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrFixedPtType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-##############################################################################
-
-package CORBA::XS::Cname_put2;
-
-#
-#   See 1.21    Summary of Argument/Result Passing
-#
-
-# needs $type->{length}
-
-sub NameAttr {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    my $class = ref $type;
-    $class = 'BasicType' if ($type->isa('BasicType'));
-    $class = 'AnyType' if ($type->isa('AnyType'));
-    $class = 'BaseInterface' if ($type->isa('BaseInterface'));
-    $class = 'ForwardBaseInterface' if ($type->isa('ForwardBaseInterface'));
-    my $func = 'NameAttr' . $class;
-    if($proto->can($func)) {
-        return $proto->$func($symbtab, $type, $attr);
-    }
-    else {
-        warn "Please implement a function '$func' in '",__PACKAGE__,"'.\n";
-    }
-}
-
-sub NameAttrBaseInterface {
-    warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
-}
-
-sub NameAttrForwardBaseInterface {
-    warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
-}
-
-sub NameAttrTypeDeclarator {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (exists $type->{array_size}) {
-        warn __PACKAGE__,"::NameAttrTypeDeclarator $type->{idf} : empty array_size.\n"
-                unless (@{$type->{array_size}});
-        if (    $attr eq 'inout' ) {
-            return q{};
-        }
-        elsif ( $attr eq 'out' ) {
-            return q{};
-        }
-        elsif ( $attr eq 'return' ) {
-            return q{};
-        }
-        else {
-            warn __PACKAGE__,"::NameTypeDeclarator : ERROR_INTERNAL $attr \n";
-        }
-    }
-    else {
-        my $type = $type->{type};
-        unless (ref $type) {
-            $type = $symbtab->Lookup($type);
-        }
-        return $proto->NameAttr($symbtab, $type, $attr);
-    }
-}
-
-sub NameAttrNativeType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
-}
-
-sub NameAttrBasicType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrBasicType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrAnyType {
-    warn __PACKAGE__,"::NameAttrAnyType : not supplied \n";
-}
-
-sub NameAttrStructType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return '*';
-        }
-        else {
-            return q{};
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return '*';
-        }
-        else {
-            return q{};
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStructType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrUnionType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return '*';
-        }
-        else {
-            return q{};
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return '*';
-        }
-        else {
-            return q{};
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrUnionType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrEnumType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrEnumType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrSequenceType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        return '*';
-    }
-    elsif ( $attr eq 'return' ) {
-        return '*';
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrSequenceType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'return' ) {
-        return '*';
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrWideStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'return' ) {
-        return '*';
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrWideStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrFixedPtType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'inout' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'out' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrFixedPtType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-##############################################################################
-
-package CORBA::XS::Cptrname_get2;
-
-#
-#   See 1.21    Summary of Argument/Result Passing
-#
-
-# needs $type->{length}
-
-sub NameAttr {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    my $class = ref $type;
-    $class = 'BasicType' if ($type->isa('BasicType'));
-    $class = 'AnyType' if ($type->isa('AnyType'));
-    $class = 'BaseInterface' if ($type->isa('BaseInterface'));
-    $class = 'ForwardBaseInterface' if ($type->isa('ForwardBaseInterface'));
-    my $func = 'NameAttr' . $class;
-    if($proto->can($func)) {
-        return $proto->$func($symbtab, $type, $attr);
-    }
-    else {
-        warn "Please implement a function '$func' in '",__PACKAGE__,"'.\n";
-    }
-}
-
-sub NameAttrBaseInterface {
-    warn __PACKAGE__,"::NameAttrBaseInterface : not supplied \n";
-}
-
-sub NameAttrForwardBaseInterface {
-    warn __PACKAGE__,"::NameAttrForwardBaseInterface : not supplied \n";
-}
-
-sub NameAttrTypeDeclarator {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (exists $type->{array_size}) {
-        warn __PACKAGE__,"::NameAttrTypeDeclarator $type->{idf} : empty array_size.\n"
-                unless (@{$type->{array_size}});
-        if (    $attr eq 'in' ) {
-            return '&';
-        }
-        elsif ( $attr eq 'inout' ) {
-            return '&';
-        }
-        elsif ( $attr eq 'out' ) {
-            if (defined $type->{length}) {      # variable
-                return '&';
-            }
-            else {
-                return '&';
-            }
-        }
-        elsif ( $attr eq 'return' ) {
-            return '&';
-        }
-        else {
-            warn __PACKAGE__,"::NameAttrTypeDeclarator : ERROR_INTERNAL $attr \n";
-        }
-    }
-    else {
-        my $type = $type->{type};
-        unless (ref $type) {
-            $type = $symbtab->Lookup($type);
-        }
-        return $proto->NameAttr($symbtab, $type, $attr);
-    }
-}
-
-sub NameAttrNativeType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    warn __PACKAGE__,"::NameAttrNativeType native : not supplied \n";
-}
-
-sub NameAttrBasicType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return '&';
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrBasicType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrAnyType {
-    warn __PACKAGE__,"::NameAttrAnyType : not supplied \n";
-}
-
-sub NameAttrStructType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return q{};
-        }
-        else {
-            return '&';
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return q{};
-        }
-        else {
-            return '&';
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStructType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrUnionType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        if (defined $type->{length}) {      # variable
-            return q{};
-        }
-        else {
-            return '&';
-        }
-    }
-    elsif ( $attr eq 'return' ) {
-        if (defined $type->{length}) {      # variable
-            return q{};
-        }
-        else {
-            return '&';
-        }
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrUnionType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrEnumType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return '&';
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrEnumType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrSequenceType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    my $max = 0;
-    $max = $type->{max}->{c_literal} if (exists $type->{max});
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return q{};
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrSequenceType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrWideStringType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return q{};
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrWideStringType : ERROR_INTERNAL $attr \n";
-    }
-}
-
-sub NameAttrFixedPtType {
-    my $proto = shift;
-    my($symbtab, $type, $attr) = @_;
-    if (    $attr eq 'in' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'inout' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'out' ) {
-        return '&';
-    }
-    elsif ( $attr eq 'return' ) {
-        return '&';
-    }
-    else {
-        warn __PACKAGE__,"::NameAttrFixedPtType : ERROR_INTERNAL $attr \n";
-    }
-}
 
 1;
 

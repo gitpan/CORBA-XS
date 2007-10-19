@@ -8,7 +8,7 @@ package CORBA::XS::StubPerlVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '0.60';
+our $VERSION = '0.61';
 
 use CORBA::Perl::CdrVisitor;
 use base qw(CORBA::Perl::CdrVisitor);
@@ -23,7 +23,7 @@ sub new {
     my $class = ref($proto) || $proto;
     my $self = {};
     bless $self, $class;
-    my($parser) = @_;
+    my($parser, $pkg_prefix) = @_;
     $self->{parser} = $parser;
     $self->{parser}->YYData->{modules} = [];
     $self->{srcname} = $parser->YYData->{srcname};
@@ -32,13 +32,13 @@ sub new {
     $self->{symbtab} = $parser->YYData->{symbtab};
     $self->{client} = 1;
     $self->{use} = {};
-    if (exists $parser->YYData->{opt_J}) {
-        $self->{path_use} = $parser->YYData->{opt_J};
-        $self->{path_use} =~ s/\//::/g;
-        $self->{path_use} .= '::';
+    if ($pkg_prefix) {
+        $self->{pkg_prefix} = $pkg_prefix;
+        $self->{pkg_prefix} =~ s/\//::/g;
+        $self->{pkg_prefix} .= '::';
     }
     else {
-        $self->{path_use} = q{};
+        $self->{pkg_prefix} = q{};
     }
     my $filename = basename($self->{srcname}, '.idl') . '.pm';
     $self->open_stream($filename);
@@ -73,6 +73,11 @@ sub visitSpecification {
     print $FH "use CORBA::Perl::CORBA;\n";
     print $FH "use Carp;\n";
     print $FH "\n";
+    if (exists $node->{list_import}) {
+        foreach (@{$node->{list_import}}) {
+            $_->visit($self);
+        }
+    }
     foreach (@{$node->{list_decl}}) {
         $self->_get_defn($_)->visit($self);
         if ($self->{pkg_modif}) {
@@ -271,16 +276,16 @@ sub visitOperation {
     else {
         print $FH "\tmy \$_ret = ",$node->{pl_package},"::cdr_",$node->{pl_name},"(\$_this,\$_is,\$_os);\n";
         print $FH "\tif (\$_ret <= 0) {\n";
-        print $FH "\t\tthrow CORBA::SystemException(\n";
+        print $FH "\t\tthrow CORBA::Perl::CORBA::SystemException(\n";
         print $FH "\t\t\t\t_repos_id => 'IDL:CORBA/NO_MEMORY:1.0',\n";
         print $FH "\t\t\t\tminor     => 3,\n";
-        print $FH "\t\t\t\tcompleted => CORBA::COMPLETED_MAYBE\n";
+        print $FH "\t\t\t\tcompleted => CORBA::Perl::CORBA::COMPLETED_MAYBE\n";
         print $FH "\t\t);\n";
         print $FH "\t}\n";
         print $FH "\tmy \$_offset = 0;\n";
         print $FH "\tmy \$_endian = 1;\n";
-        print $FH "\tmy \$_status = CORBA::exception_type__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
-        print $FH "\tif      (\$_status eq CORBA::NO_EXCEPTION) {\n";
+        print $FH "\tmy \$_status = CORBA::Perl::CORBA::exception_type__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
+        print $FH "\tif      (\$_status eq CORBA::Perl::CORBA::NO_EXCEPTION) {\n";
         my $nb = 0;
         my $type = $self->_get_defn($node->{type});
         unless ($type->isa('VoidType')) {
@@ -323,8 +328,8 @@ sub visitOperation {
         print $FH ")" if ($nb > 1);
         print $FH ";\n";
         print $FH "\t}\n";
-        print $FH "\telsif (\$_status eq CORBA::USER_EXCEPTION) {\n";
-        print $FH "\t\tmy \$_exception_id = CORBA::string__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
+        print $FH "\telsif (\$_status eq CORBA::Perl::CORBA::USER_EXCEPTION) {\n";
+        print $FH "\t\tmy \$_exception_id = CORBA::Perl::CORBA::string__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
         print $FH "\t\tif (0) {\n";
         foreach (@{$node->{list_raise}}) {
             my $defn = $self->_get_defn($_);
@@ -343,11 +348,11 @@ sub visitOperation {
         print $FH "\t\t\twarn \"unknown user exception \$_exception_id.\\n\";\n";
         print $FH "\t\t}\n";
         print $FH "\t}\n";
-        print $FH "\telsif (\$_status eq CORBA::SYSTEM_EXCEPTION) {\n";
-        print $FH "\t\tmy \$_exception_id = CORBA::string__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
-        print $FH "\t\tmy \$_minor_code_value = CORBA::unsigned_long__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
-        print $FH "\t\tmy \$_completion_status = CORBA::completion_status__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
-        print $FH "\t\tthrow CORBA::SystemException(\n";
+        print $FH "\telsif (\$_status eq CORBA::Perl::CORBA::SYSTEM_EXCEPTION) {\n";
+        print $FH "\t\tmy \$_exception_id = CORBA::Perl::CORBA::string__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
+        print $FH "\t\tmy \$_minor_code_value = CORBA::Perl::CORBA::unsigned_long__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
+        print $FH "\t\tmy \$_completion_status = CORBA::Perl::CORBA::completion_status__demarshal(\\\$_os,\\\$_offset,\$_endian);\n";
+        print $FH "\t\tthrow CORBA::Perl::CORBA::SystemException(\n";
         print $FH "\t\t\t\t_repos_id => \$_exception_id,\n";
         print $FH "\t\t\t\tminor     => \$_minor_code_value,\n";
         print $FH "\t\t\t\tcompleted => \$_completion_status\n";

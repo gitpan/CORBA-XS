@@ -16,6 +16,7 @@ C/cdr.h
 example1/Calc.idl
 example1/skel_Calc.c
 example1/README
+example1/t/01-calc.t
 example1/testunit/test_add.pm
 example1/testunit/test_sub.pm
 example1/testunit/test_mul.pm
@@ -25,11 +26,13 @@ example2/Cplx.idl
 example2/CalcCplx.idl
 example2/skel_CalcCplx.c
 example2/README
+example2/t/01-calc.t
 example2/testunit/test_cplx.pm
 example3/Cplx.idl
 example3/CalcCplx.idl
 example3/skel_CalcCplx.c
 example3/README
+example3/t/01-calc.t
 example3/testunit/test_cplx.pm
 
 META.yml                                 Module meta-data (added by MakeMaker)

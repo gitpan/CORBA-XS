@@ -8,7 +8,7 @@ WriteMakefile(
     'PREREQ_PM'     => {
                         'CORBA::IDL'    => 2.60,
                         'CORBA::C'      => 2.60,
-                        'CORBA::Perl'   => 0.40,
+                        'CORBA::Perl'   => 0.41,
     },
     'INSTALLDIRS'   => 'site',
     'PM'            => {
@@ -19,8 +19,6 @@ WriteMakefile(
                         'lib/CORBA/XS/StubCVisitor.pm'      => '$(INST_LIBDIR)/XS/StubCVisitor.pm',
                         'lib/CORBA/XS/StubPerlVisitor.pm'   => '$(INST_LIBDIR)/XS/StubPerlVisitor.pm',
                         'C/corba.c'                         => '$(INST_LIBDIR)/XS/corba.c',
-                        'C/corba.h'                         => '$(INSTALLARCHLIB)/CORE/corba.h',
-                        'C/cdr.h'                           => '$(INSTALLARCHLIB)/CORE/cdr.h',
     },
     'EXE_FILES'     => [ 'bin/idl2xs_c' ],
     'AUTHOR'        => "Francois PERRAD (francois.perrad\@gadz.org)",
@@ -29,4 +27,19 @@ WriteMakefile(
                         'SUFFIX'        => '.gz',
     },
 );
+
+sub MY::install {
+    package MY;
+    my $script = shift->SUPER::install(@_);
+    $script =~ s/install :: (.*)$/install :: $1 install_core_h/m;
+    $script .= <<"INSTALL";
+
+install_core_h :
+\t\$(CP) C/corba.h \$(INSTALLARCHLIB)/CORE/corba.h
+\t\$(CP) C/cdr.h \$(INSTALLARCHLIB)/CORE/cdr.h
+
+INSTALL
+
+    return $script;
+}
 

@@ -3,7 +3,7 @@ use warnings;
 
 package CORBA::XS;
 
-our $VERSION = '0.60';
+our $VERSION = '0.61';
 
 use CORBA::XS::CdrCVisitor;
 use CORBA::XS::CVisitor;

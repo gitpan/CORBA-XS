@@ -5,7 +5,7 @@ use warnings;
 
 use CORBA::IDL      2.60;
 use CORBA::C        2.60;
-use CORBA::Perl     0.40;
+use CORBA::Perl     0.41;
 use CORBA::XS;
 # visitors
 use CORBA::IDL::RepositoryIdVisitor;
@@ -65,9 +65,9 @@ if (defined $root) {
     $root->visit(new CORBA::C::IncSkelVisitor($parser, q{}, q{}));
     $root->visit(new CORBA::XS::SkeletonCVisitor($parser));
     $root->visit(new CORBA::XS::StubCVisitor($parser));
-    $root->visit(new CORBA::Perl::NameVisitor($parser));
+    $root->visit(new CORBA::Perl::NameVisitor($parser, $parser->YYData->{opt_J}));
     $root->visit(new CORBA::Perl::LiteralVisitor($parser));
-    $root->visit(new CORBA::XS::StubPerlVisitor($parser));
+    $root->visit(new CORBA::XS::StubPerlVisitor($parser, $parser->YYData->{opt_J}));
     $root->visit(new CORBA::XS::CVisitor($parser));
 }
 
