@@ -8,7 +8,7 @@ package CORBA::XS::StubCVisitor;
 use strict;
 use POSIX qw(ctime);
 
-our $VERSION = '0.61';
+our $VERSION = '0.62';
 
 use CORBA::XS::CdrCVisitor;
 use base qw(CORBA::XS::CdrCVisitor);
@@ -666,6 +666,7 @@ sub visitSpecification {
     my($node) = @_;
     my $filename = $self->{prefix} . basename($self->{srcname}, '.idl') . '.h';
     my $FH = $self->{out};
+    print $FH "/* ex: set ro: */\n";
     print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
     print $FH "// From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
     print $FH "\n";
@@ -678,6 +679,12 @@ sub visitSpecification {
         $self->_get_defn($_)->visit($self);
     }
     print $FH "/* end of file : ",$self->{filename}," */\n";
+    print $FH "\n";
+    print $FH "/*\n";
+    print $FH " * Local variables:\n";
+    print $FH " *   buffer-read-only: t\n";
+    print $FH " * End:\n";
+    print $FH " */\n";    
     close $FH;
 }
 

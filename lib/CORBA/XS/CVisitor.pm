@@ -8,7 +8,7 @@ package CORBA::XS::CVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '0.60';
+our $VERSION = '0.62';
 
 use File::Basename;
 use POSIX qw(ctime);
@@ -70,6 +70,7 @@ sub visitSpecification {
     my $src_name = basename($self->{srcname}, '.idl');
     $self->open_stream($src_name . '.c');
     my $FH = $self->{out};
+    print $FH "/* ex: set ro: */\n";
     print $FH "/* This file was generated (by ",$0,"). DO NOT modify it */\n";
     print $FH "/*\n";
     print $FH " * From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
@@ -98,6 +99,12 @@ sub visitSpecification {
     print $FH "}\n";
     print $FH "\n";
     print $FH "/* end of file : ",$self->{filename}," */\n";
+    print $FH "\n";
+    print $FH "/*\n";
+    print $FH " * Local variables:\n";
+    print $FH " *   buffer-read-only: t\n";
+    print $FH " * End:\n";
+    print $FH " */\n";    
     close $FH;
     unless ($self->{has_methods}) {
         unlink $self->{filename}

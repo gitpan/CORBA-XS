@@ -8,7 +8,7 @@ package CORBA::XS::StubPerlVisitor;
 use strict;
 use warnings;
 
-our $VERSION = '0.61';
+our $VERSION = '0.62';
 
 use CORBA::Perl::CdrVisitor;
 use base qw(CORBA::Perl::CdrVisitor);
@@ -61,6 +61,7 @@ sub visitSpecification {
     my $filename = basename($self->{srcname}, '.idl');
     my $FH = $self->{out};
     $self->{pkg_modif} = 0;
+    print $FH "# ex: set ro:\n";
     print $FH "#   This file was generated (by ",$0,"). DO NOT modify it.\n";
     print $FH "# From file : ",$self->{srcname},", ",$self->{srcname_size}," octets, ",POSIX::ctime($self->{srcname_mtime});
     print $FH "\n";
@@ -104,6 +105,10 @@ sub visitSpecification {
     print $FH "1;\n";
     print $FH "\n";
     print $FH "#   end of file : ",$self->{filename},"\n";
+    print $FH "\n";
+    print $FH "# Local variables:\n";
+    print $FH "#   buffer-read-only: t\n";
+    print $FH "# End:\n";
     close $FH;
 }
 
