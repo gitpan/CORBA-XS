@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               CORBA-XS
-version:            0.63_02
+version:            0.63
 abstract:           IDL compiler to extension interface between Perl and C code
 author:
     - Francois PERRAD (francois.perrad@gadz.org)
