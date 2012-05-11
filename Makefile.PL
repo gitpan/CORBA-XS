@@ -26,6 +26,11 @@ WriteMakefile(
                         'COMPRESS'      => 'gzip',
                         'SUFFIX'        => '.gz',
     },
+    'META_MERGE'    => {
+                        'no_index'      => {
+                                            'directory' => [ 'examples1', 'examples2', 'examples3' ],
+                       },
+    },
 );
 
 sub MY::install {
