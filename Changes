@@ -1,5 +1,8 @@
 Revision history for Perl extension CORBA::XS.
 
+0.63  Fri May 11 17:30:00 2012
+	- fix RT#76826
+
 0.62  Wed Jul 16 18:30:00 2008
 	- add Vi & Emacs macros
 
